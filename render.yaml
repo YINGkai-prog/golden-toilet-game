@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: golden-toilet-game
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/info
+    envVars:
+      - key: HOST_KEY
+        sync: false
