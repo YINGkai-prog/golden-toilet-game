@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>金馬桶專案｜一座馬桶的誕生</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231d3840'/%3E%3Cpath d='m12 24 20-11 20 11-20 12zm0 4 18 11v19L12 47zm22 11 18-11v19L34 58z' fill='%23efbe62'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="common.css">
+<style>
+body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+main{flex:1;min-height:0;overflow:auto;position:relative}
+.wrap{max-width:1180px;margin:0 auto;padding:24px}
+/* 報到 */
+.lobby{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;align-items:start;max-width:1100px;margin:0 auto;padding:40px 24px}
+.hero{padding:36px}
+.hero h1{font-size:32px;line-height:1.35;margin:8px 0 10px}
+.hero p{color:#4e6962;font-size:16px}
+.join-row{display:flex;gap:10px;margin:26px 0 10px}
+.join-row input{flex:1;font-size:22px;padding:14px 16px;border-radius:12px}
+.join-row button{font-size:22px;padding:14px 28px;border-radius:12px;min-width:170px}
+.recent{padding:22px}
+.recent h3{font-size:15px;margin-bottom:10px}
+.rlist{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto}
+.ritem{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;background:#f3f6f1;font-size:14px}
+.ritem .n{font-weight:800;width:30px;color:#8a9b92;font-variant-numeric:tabular-nums}
+.ritem.me{background:var(--gold-soft);outline:2px solid #e2b23f}
+.ritem .ms{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.joined-big{text-align:center;padding:40px 30px}
+.joined-big .num{font-size:96px;font-weight:900;line-height:1;color:#24484e}
+.joined-big .num small{font-size:28px;font-weight:600}
+.joined-big .t{font-size:24px;font-weight:800;margin:14px 0 6px}
+/* 職級卡 */
+.roles{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:start;max-width:1100px;margin:0 auto;padding:34px 24px}
+.rank-back{background:var(--paper);border:3px solid var(--rc,#24484e)}
+.rank-back .rk{font-size:58px;font-weight:900;color:var(--rc);line-height:1.1}
+.rank-back .tt{font-size:20px;font-weight:700;margin:6px 0 12px}
+.rank-back ul{padding-left:20px;margin:16px 0 0;color:#3f5c58}
+.rank-back li{margin:6px 0}
+.roster{padding:20px}
+.roster h3{font-size:16px;margin-bottom:12px}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.person{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;background:#f3f6f1;font-size:13px;min-width:0}
+.person b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;flex:none}
+.person.me{outline:2px solid #e2b23f;background:var(--gold-soft)}
+.person.off{opacity:.5}
+/* 開案 */
+.briefs{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
+.bcard{text-align:left;padding:22px;border-radius:16px;border:2px solid var(--line);background:var(--paper);position:relative;min-height:170px}
+.bcard .ic{font-size:44px;line-height:1}
+.bcard b{display:block;font-size:22px;margin:8px 0 2px}
+.bcard .tag{color:#ad8036;font-weight:700}
+.bcard p{font-size:13px;color:var(--muted);margin-top:6px}
+.bcard.chosen{border-color:#c88d2e;background:#fff8e6;box-shadow:0 0 0 4px #f2d38e}
+.bcard.dim{opacity:.4}
+/* 共創 */
+.build{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;height:100%;padding:14px}
+.build .stage{position:relative;min-height:0;display:flex;flex-direction:column;gap:8px}
+.build .stage .vox{flex:1;min-height:0;border:1px solid #cbd8cd}
+.side{overflow:auto;display:flex;flex-direction:column;gap:10px;min-height:0}
+.side .card{padding:14px;box-shadow:none}
+.side h4{margin:0 0 8px;font-size:13px;color:#4e6962;display:flex;justify-content:space-between;align-items:center}
+.brief-mini{display:flex;gap:10px;align-items:center}
+.brief-mini .ic{font-size:30px}
+.brief-mini b{font-size:15px}
+.budget-bar{height:10px;background:#e3e9df;border-radius:6px;overflow:hidden;margin-top:6px}
+.budget-bar i{display:block;height:100%;background:var(--teal);transition:width .2s}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.modes button{padding:9px 4px;font-size:13px}
+.stk-list{display:flex;flex-wrap:wrap;gap:6px}
+.stk-list button{font-size:12px;padding:5px 9px;border-radius:999px}
+.team-list{display:flex;flex-direction:column;gap:4px;max-height:280px;overflow:auto}
+.tl{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 6px;border-radius:7px}
+.tl.me{background:var(--gold-soft)}
+.tl .av{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;flex:none}
+.tl .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl .ct{font-variant-numeric:tabular-nums;color:#4e6962}
+.dir-bar{background:#f1e8f6;border:1px solid #d9c3e6;color:#5d3b74;border-radius:10px;padding:7px 12px;font-size:13px}
+.teamtabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.teamtabs button{padding:12px 6px;font-weight:700}
+.teamtabs button[aria-pressed=true].A{background:var(--A);border-color:var(--A)}
+.teamtabs button[aria-pressed=true].B{background:var(--B);border-color:var(--B)}
+.reacts{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.reacts button{font-size:22px;padding:6px 0}
+.help{font-size:12px;color:var(--muted);line-height:1.8}
+/* 評選 */
+.review{display:grid;grid-template-columns:1fr 1fr;gap:16px;height:100%;padding:14px}
+.rcol{display:flex;flex-direction:column;gap:10px;min-height:0}
+.rcol .vox{flex:1;min-height:0;border:3px solid var(--tc)}
+.rhead{display:flex;align-items:baseline;gap:10px}
+.rhead b{font-size:24px;color:var(--tc)}
+.rvote{display:flex;align-items:center;gap:10px}
+.rvote button{font-size:17px;padding:12px 20px;font-weight:700}
+.boss-bar{grid-column:1/-1;display:flex;gap:12px;align-items:center;justify-content:center;padding:12px;background:var(--gold-soft);border-radius:14px;border:2px solid #e2b23f}
+.boss-bar button{font-size:18px;padding:12px 26px}
+/* 市調 */
+.survey{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;height:100%;padding:16px}
+.survey .vox{height:100%;min-height:320px;border:1px solid #cbd8cd}
+.survey .card{padding:24px}
+.price-big{font-size:40px;font-weight:900;color:#24484e;font-variant-numeric:tabular-nums}
+.quotes{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto;margin-top:8px}
+.quote{background:#f3f6f1;border-radius:10px;padding:8px 12px;font-size:13px}
+.quote small{color:var(--muted);display:block;font-size:11px}
+/* 海報牆 */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;padding:20px}
+.gcard{padding:10px;display:flex;flex-direction:column;gap:8px;position:relative}
+.gcard img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;cursor:zoom-in;background:#ddd}
+.gcard .meta{font-size:12px;color:var(--muted)}
+.gcard b{font-size:15px}
+.gcard.voted{outline:3px solid var(--teal)}
+.gcard.official{outline:4px solid #c88d2e}
+.gcard .badge{position:absolute;top:16px;left:16px;background:#c88d2e;color:#fff;font-weight:800;padding:4px 10px;border-radius:8px;font-size:13px}
+.lightbox{position:fixed;inset:0;background:#0009;display:grid;place-items:center;z-index:120;cursor:zoom-out}
+.lightbox img{max-height:92vh;max-width:92vw;border-radius:12px;box-shadow:0 20px 60px #0008}
+/* 發表會 */
+.launch{display:grid;grid-template-columns:auto 1fr;gap:26px;max-width:1150px;margin:0 auto;padding:26px}
+.launch img{width:min(380px,40vw);border-radius:14px;box-shadow:0 20px 50px #0003}
+.launch h1{font-size:38px;line-height:1.25}
+.award{display:flex;gap:10px;align-items:center;padding:10px 12px;background:#f3f6f1;border-radius:12px;margin:6px 0}
+.award .ic{font-size:26px}
+.center-msg{display:grid;place-items:center;height:100%;text-align:center;padding:30px}
+.center-msg h2{font-size:28px;margin:10px 0}
+@media (max-width:900px){.lobby,.roles,.launch,.survey,.review{grid-template-columns:1fr}.build{grid-template-columns:1fr;grid-template-rows:60vh auto;height:auto}.briefs{grid-template-columns:1fr 1fr}.steps{display:none}}
+</style>
+<link rel="stylesheet" href="theme.css?v=office-2026.10.05">
+</head>
+<body class="player-page">
+<header class="topbar">
+  <div class="brand"><span class="cube">🚽</span><div><b>金盒公司</b><small>GOLDEN BOX · 一座馬桶的誕生</small></div></div>
+  <div class="steps" id="steps"></div>
+  <div class="timer" id="timer"></div>
+  <button id="officeToggle" class="office-toggle" aria-controls="playerOfficeWrap" aria-expanded="false">公司實況</button>
+  <div class="me-badge hidden" id="me"></div>
+</header>
+<main id="main"></main>
+<section id="playerOfficeWrap" class="hidden" aria-label="金盒公司實況"><div id="playerOffice"></div></section>
+<script src="three.min.js"></script>
+<script src="shared.js"></script>
+<script src="common.js"></script>
+<script src="poster.js"></script>
+<script src="office.js"></script>
+<script src="player.js"></script>
+</body>
+</html>
+
