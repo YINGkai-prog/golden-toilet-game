@@ -12,17 +12,66 @@
     { id: 'gallery', name: '海報',   long: '海報評選',       hint: '全員投票，老闆選官方海報' },
     { id: 'launch',  name: '發表會', long: '上市發表會',     hint: '金馬桶正式上市' }
   ];
+  // One layout drives architecture, seats, collision and server navigation.
+  G.LAYOUT = 'forest-villa-1';
   G.ROOMS = [
-    {id:'A',name:'研發一處',sub:'HUMAN / A',x:-12,z:2,w:14,d:9,color:'#62d9cc',door:[-12,8]},
-    {id:'B',name:'研發二處',sub:'HUMAN / B',x:4,z:2,w:14,d:9,color:'#7da9ff',door:[4,8]},
-    {id:'lounge',name:'茶水間',sub:'COFFEE BREAK',x:-13,z:-9,w:12,d:8,color:'#d2b68c',door:[-13,-4],route:[[-13,-3],[-20,-3],[-20,8]]},
-    {id:'arcade',name:'遊戲室',sub:'SIDE QUEST',x:-1,z:-9,w:10,d:8,color:'#b793ed',door:[-1,-4],route:[[-1,-3],[12,-3],[12,8]]},
-    {id:'wc',name:'廁所',sub:'RESET YOURSELF',x:10,z:-9,w:6,d:8,color:'#b2ccd1',door:[10,-4],route:[[10,-3],[12,-3],[12,8]]},
-    {id:'board',name:'董事會',sub:'THE BOARD',x:18,z:2,w:8,d:9,color:'#e7ce87',door:[18,8]},
-    {id:'core',name:'神秘機房',sub:'RESTRICTED / C',x:19.5,z:-9,w:7,d:8,color:'#d2ef96',door:[19.5,-4],route:[[19.5,-3],[12,-3],[12,8]],private:true},
-    {id:'M',name:'行銷工作室',sub:'MAKE IT MATTER',x:-12,z:13,w:14,d:8,color:'#e6a6ae',door:[-12,8]},
-    {id:'atrium',name:'中央大廳',sub:'GOLDEN BOX',x:9,z:13,w:26,d:8,color:'#aac9c6',door:[9,8]}
+    {id:'A',name:'研發一處',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
+    {id:'B',name:'研發二處',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
+    {id:'M',name:'行銷工作室',sub:'STUDIO / 12 SEATS',x:-26,z:30,w:28,d:18,color:'#bca0af',seats:12},
+    {id:'board',name:'董事會',sub:'THE BOARD',x:26,z:30,w:28,d:18,color:'#b69d70'},
+    {id:'lounge',name:'茶水間',sub:'COFFEE & CONVERSATION',x:-30,z:-22,w:20,d:16,color:'#b7a17c'},
+    {id:'arcade',name:'遊戲室',sub:'SIDE QUEST',x:-9,z:-22,w:20,d:16,color:'#a18abd'},
+    {id:'wc',name:'廁所',sub:'RESET YOURSELF',x:9,z:-22,w:14,d:16,color:'#80aaa9'},
+    {id:'atrium',name:'迎賓大廳',sub:'GOLDEN BOX / ARRIVAL',x:0,z:28,w:21,d:34,color:'#92a8a2',open:true},
+    {id:'courtyard',name:'中庭花園',sub:'OPEN SKY / INNER GARDEN',x:0,z:1,w:21,d:18,color:'#71986c',outdoor:true},
+    {id:'terrace',name:'戶外露台',sub:'TERRACE / SLOW DOWN',x:0,z:49,w:84,d:8,color:'#b3a284',outdoor:true},
+    {id:'garden',name:'林蔭花園',sub:'BOTANICAL WALK',x:52,z:-15,w:20,d:46,color:'#789466',outdoor:true},
+    {id:'smoking',name:'吸菸區',sub:'OUTDOOR / SMOKING',x:-52,z:19,w:16,d:18,color:'#9eaa94',outdoor:true},
+    {id:'road',name:'園區馬路',sub:'FOREST AVENUE',x:0,z:65,w:124,d:12,color:'#899aa0',outdoor:true},
+    {id:'forest',name:'城市森林',sub:'FOREST TRAIL',x:0,z:-48,w:122,d:16,color:'#729675',outdoor:true},
+    {id:'core',name:'神秘機房',sub:'C / CHAIRPERSON ONLY',x:29,z:-22,w:24,d:16,color:'#89a688',private:true},
+    {id:'grounds',name:'園區漫步',sub:'EXPLORE THE CAMPUS',x:0,z:7,w:126,d:130,color:'#879a79',outdoor:true,base:true}
   ];
+  G.DESKS = [];
+  for(const id of ['A','B','M']) {
+    const r=G.ROOMS.find(r=>r.id===id);
+    for(const dx of [-9.7,-6.1,-2.5,2.5,6.1,9.7]) for(const dz of id==='M'?[-5,1]:[-9,-4,1,6])
+      G.DESKS.push({x:r.x+dx,z:r.z+dz,room:id,color:r.color});
+  }
+  G.WALLS=[]; G.SOLIDS=[];
+  for(const r of G.ROOMS.filter(r=>!r.outdoor&&!r.open)) {
+    for(const side of [-1,1]) {
+      G.WALLS.push({x:r.x+side*r.w/2,z:r.z,w:.32,d:r.d});
+      // Wide doors at both ends make every wing accessible from the galleries.
+      for(const half of [-1,1])G.WALLS.push({x:r.x+half*(r.w/4+1),z:r.z+side*r.d/2,w:r.w/2-2,d:.32});
+    }
+  }
+  for(const d of G.DESKS)G.SOLIDS.push({x:d.x,z:d.z+.6,w:3.05,d:2.9});
+  // Equipment islands and furnishings; the same footprints are rendered below.
+  G.FIXTURES = [
+    ...[-36,-30,-24].map(x=>({type:'coffee',x,z:-27,w:4,d:2})),
+    ...[-36,-25].map(x=>({type:'sofa',x,z:-20,w:5,d:3})),
+    ...[-16,-11,-6].map(x=>({type:'arcade',x,z:-27,w:2.3,d:2})),
+    {type:'gameTable',x:-9,z:-20,w:7,d:3},
+    ...[5,9,13].map(x=>({type:'toilet',x,z:-27,w:2.5,d:3})),
+    {type:'boardTable',x:26,z:29,w:15,d:7},
+    {type:'reception',x:0,z:25,w:8,d:2},
+    {type:'planter',x:0,z:0,w:8,d:8},
+    ...[-33,-21,21,33].map(x=>({type:'patio',x,z:49,w:4,d:3})),
+    {type:'smoking',x:-54,z:16,w:5,d:3},
+    ...[-29,-21].flatMap(z=>[22,35].map(x=>({type:'rack',x,z,w:4,d:2.5}))),
+    ...[-26,26].map(x=>({type:'printer',x:x+10.5,z:15,w:2,d:2}))
+  ];
+  G.SOLIDS.push(...G.FIXTURES.map(f=>({x:f.x,z:f.z,w:f.w,d:f.d})));
+  for(const x of [47,58])for(const z of [-32,-18,-4])G.SOLIDS.push({x,z,w:4,d:4});
+  for(const x of [-51,-38,-24,-10,5,21,37,53])for(const z of [-53,-40])G.SOLIDS.push({x,z,w:.9,d:.9});
+  for(const x of [-31,-20,20,31])G.SOLIDS.push({x,z:56,w:4.7,d:2.4});
+  for(const x of [-36,-25])G.SOLIDS.push({x,z:-18,w:2,d:2});
+  for(const x of [-36,-16,16,36])G.SOLIDS.push({x,z:-6.8,w:3,d:1});
+  for(const z of [-30,39])for(let x=-40;x<=40;x+=8)if(z!==39||x!==0)G.SOLIDS.push({x,z,w:.4,d:.4});
+  for(const x of [-40,40])for(let z=-23;z<39;z+=8)G.SOLIDS.push({x,z,w:.4,d:.4});
+  for(const z of [-11,19.5])for(const x of [-39,-13,13,39])G.SOLIDS.push({x,z,w:.3,d:.3});
+  for(const x of [-10.5,10.5])for(const z of [-6,10,29,43])G.SOLIDS.push({x,z,w:.3,d:.3});
   G.PHASE_IDS = G.PHASES.map(p => p.id);
 
   G.DEFAULT_SETTINGS = { briefSec: 45, buildSec: 240, posterSec: 240 };
@@ -102,4 +151,3 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = G;
   else root.GAME = G;
 })(typeof self !== 'undefined' ? self : this);
-
