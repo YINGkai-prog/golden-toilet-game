@@ -1,6 +1,6 @@
 'use strict';
 const {randomBytes}=require('node:crypto');
-module.exports=function({getGame,broadcast,changed,save,clock=Date.now}){
+module.exports=function({getGame,broadcast,changed,save,clock=Date.now,externalSports=false}){
  const uid=()=>randomBytes(6).toString('hex'),active=()=>Object.values(getGame().players).filter(p=>!p.kicked);
  function state(){const g=getGame();return g.recreation||(g.recreation={football:{x:0,z:1,vx:0,vz:0,score:[0,0],resetAt:0,last:null},coffee:null});}
  function summary(){const s=state();return{...s,activities:active().filter(p=>p.mini||p.dancing).map(p=>({id:p.id,type:p.dancing?'dance':p.mini.type,score:p.mini?.score||0,expires:p.mini?.expires||0}))};}
@@ -43,12 +43,13 @@ module.exports=function({getGame,broadcast,changed,save,clock=Date.now}){
  function tick(){const now=clock(),dt=Math.min(.1,(now-previous)/1000);previous=now;const s=state(),ps=active();
   for(const p of ps){if(p.motion?.room!=='lounge')p.dancing=false;if(p.mini&&(p.motion?.room!=='arcade'||now>=p.mini.expires)){round(p);p.mini=null;changed();}const e=s.coffee?.entries[p.id];if(e&&!s.coffee.finished&&now<s.coffee.ends&&p.motion?.room!=='lounge')e.forfeited=true;}
   const r=s.coffee;if(r&&!r.finished&&now>=r.ends){r.finished=true;const eligible=Object.entries(r.entries).filter(([id,e])=>!e.forfeited&&ps.some(p=>p.id===id));const max=Math.max(0,...eligible.map(([,e])=>e.cups));r.winners=max?eligible.filter(([,e])=>e.cups===max).map(([id])=>id):[];broadcast({t:'toast',msg:r.winners.length?'咖啡賽結束！'+r.winners.map(id=>getGame().players[id].name).join('、')+'：'+max+' 杯，今晚精神獎！':'咖啡賽結束，大家都去忙正事了。'});changed();save();}
-  const b=s.football;if(b.resetAt&&now>=b.resetAt){Object.assign(b,{x:0,z:1,vx:0,vz:0,resetAt:0});}
+  if(!externalSports){const b=s.football;if(b.resetAt&&now>=b.resetAt){Object.assign(b,{x:0,z:1,vx:0,vz:0,resetAt:0});}
   if(!b.resetAt){
    b.x+=b.vx*dt;b.z+=b.vz*dt;b.vx*=Math.exp(-.5*dt);b.vz*=Math.exp(-.5*dt);
    if(Math.abs(b.x)>9){if(Math.abs(b.z-1)<2.6){b.score[b.x>0?0:1]++;b.resetAt=now+1600;b.vx=b.vz=0;broadcast({t:'toast',msg:'進球！這一腳比企劃進度還快。'});save();}else{b.x=Math.sign(b.x)*9;b.vx*=-.88;}}
    if(b.z< -6.7||b.z>8.7){b.z=Math.max(-6.7,Math.min(8.7,b.z));b.vz*=-.88;}
    for(const p of ps){const m=p.motion;if(!m||(!p.online&&!p.bot)||Math.hypot(m.x-b.x,m.z-b.z)>1.15||(p.lastKick&&now-p.lastKick<550))continue;const d=Math.hypot(b.x-m.x,b.z-m.z),dx=d>.05?(b.x-m.x)/d:(p.joinIdx%2?1:-1),dz=d>.05?(b.z-m.z)/d:.12;b.vx=dx*32;b.vz=dz*32;b.last=p.id;p.lastKick=now;b.x+=dx*.3;b.z+=dz*.3;}
+  }
   }
   for(const p of ps){const r=p.mini;if(!r||r.type!=='pinball')continue;const b=r.ball;
    // Small substeps keep fast balls from tunnelling through a bumper or flipper.
