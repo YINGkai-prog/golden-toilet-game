@@ -3,14 +3,25 @@
   const G = {};
 
   G.PHASES = [
-    { id: 'lobby',   name: '報到',   long: '報到搶職位',     hint: '越早報到，職位越高' },
-    { id: 'roles',   name: '人事命令', long: '人事命令發布',   hint: '看看你是老闆還是基層' },
+    { id: 'lobby',   name: '報到',   long: '報到搶職位',     hint: '最快的三位成為董事，互選董事長' },
+    { id: 'roles',   name: '董事選舉', long: '董事選舉發布',   hint: '前三位董事互選董事長' },
     { id: 'brief',   name: '開案',   long: '董事長開案',     hint: '老闆決定這座馬桶要賣給誰' },
-    { id: 'build',   name: '共創',   long: '兩隊合力蓋馬桶', hint: '研發一處、二處各蓋一座' },
+    { id: 'build',   name: '共創',   long: '人類 × AI 三隊競賽', hint: '兩組研發與自主 AI 同場競技' },
     { id: 'review',  name: '評選',   long: '提案評選',       hint: '全員投票，老闆拍板' },
     { id: 'poster',  name: '推廣',   long: '上市推廣',       hint: '行銷處做海報，其他人做市調' },
     { id: 'gallery', name: '海報',   long: '海報評選',       hint: '全員投票，老闆選官方海報' },
     { id: 'launch',  name: '發表會', long: '上市發表會',     hint: '金馬桶正式上市' }
+  ];
+  G.ROOMS = [
+    {id:'A',name:'研發一處',sub:'HUMAN / A',x:-12,z:2,w:14,d:9,color:'#62d9cc',door:[-12,8]},
+    {id:'B',name:'研發二處',sub:'HUMAN / B',x:4,z:2,w:14,d:9,color:'#7da9ff',door:[4,8]},
+    {id:'lounge',name:'茶水間',sub:'COFFEE BREAK',x:-13,z:-9,w:12,d:8,color:'#d2b68c',door:[-13,-4],route:[[-13,-3],[-20,-3],[-20,8]]},
+    {id:'arcade',name:'遊戲室',sub:'SIDE QUEST',x:-1,z:-9,w:10,d:8,color:'#b793ed',door:[-1,-4],route:[[-1,-3],[12,-3],[12,8]]},
+    {id:'wc',name:'廁所',sub:'RESET YOURSELF',x:10,z:-9,w:6,d:8,color:'#b2ccd1',door:[10,-4],route:[[10,-3],[12,-3],[12,8]]},
+    {id:'board',name:'董事會',sub:'THE BOARD',x:18,z:2,w:8,d:9,color:'#e7ce87',door:[18,8]},
+    {id:'core',name:'神秘機房',sub:'RESTRICTED / C',x:19.5,z:-9,w:7,d:8,color:'#d2ef96',door:[19.5,-4],route:[[19.5,-3],[12,-3],[12,8]],private:true},
+    {id:'M',name:'行銷工作室',sub:'MAKE IT MATTER',x:-12,z:13,w:14,d:8,color:'#e6a6ae',door:[-12,8]},
+    {id:'atrium',name:'中央大廳',sub:'GOLDEN BOX',x:9,z:13,w:26,d:8,color:'#aac9c6',door:[9,8]}
   ];
   G.PHASE_IDS = G.PHASES.map(p => p.id);
 
@@ -39,11 +50,13 @@
   G.TEAMS = {
     A: { id: 'A', name: '研發一處', plan: '方案 A', color: '#297c7b', soft: '#dcefeb' },
     B: { id: 'B', name: '研發二處', plan: '方案 B', color: '#3977bc', soft: '#dde8f5' },
+    C: { id:'C',name:'自主 AI',plan:'方案 C',color:'#d2ef96',soft:'#293727' },
     M: { id: 'M', name: '行銷處',   plan: '行銷',   color: '#9566ac', soft: '#eee3f3' }
   };
 
   // 職級：budget = 同時可擁有的積木數
   G.RANKS = {
+    board: {name:'董事',level:5,budget:0,color:'#e7ce87',perks:['董事互選董事長；不能投自己','巡視公司、參與評選與市調']},
     boss:    { name: '董事長', level: 5, budget: 0,  color: '#c88d2e',
                perks: ['不用蓋，負責拍板', '可以「巡視」任一隊，讓全隊螢幕跳出老闆', '可以貼金色「老闆的關心」', '決定開案方向、上市方案、官方海報'] },
     lead:    { name: '處長',   level: 4, budget: 6,  color: '#7a4f9a',
