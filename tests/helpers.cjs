@@ -11,6 +11,7 @@ async function start() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-office-test-'));
   fs.copyFileSync(path.join(ROOT, 'server.js'), path.join(tmp, 'server.js'));
   fs.copyFileSync(path.join(ROOT,'simulation.cjs'),path.join(tmp,'simulation.cjs'));
+  fs.copyFileSync(path.join(ROOT,'navigation.cjs'),path.join(tmp,'navigation.cjs'));
   fs.cpSync(path.join(ROOT, 'public'), path.join(tmp, 'public'), { recursive: true });
   const port = await new Promise(resolve => { const s = net.createServer(); s.listen(0,'127.0.0.1',()=>{ const p=s.address().port;s.close(()=>resolve(p)); }); });
   // A file log also works in Windows sandboxes that cannot create Node pipes.

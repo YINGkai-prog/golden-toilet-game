@@ -1,0 +1,22 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs');const {chromium}=require('playwright');const {start,KEY,delay}=require('./helpers.cjs');
+(async()=>{const app=await start();let browser;const errors=[];try{
+ browser=await chromium.launch({headless:true,channel:process.platform==='win32'?'msedge':undefined,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+ const context=await browser.newContext({viewport:{width:1512,height:982},deviceScaleFactor:1}),page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+ const observer=await app.connect({host:true,key:KEY});await page.goto(app.base+'/host?key='+KEY);await page.waitForSelector('[data-action="h.fillPlayers"]');
+ await page.locator('[data-action="h.fillPlayers"]').click();await page.waitForFunction(()=>document.querySelector('#testCount')?.textContent.includes('測試 50'),{},{timeout:30000});
+ assert.equal(await page.locator('[data-action="h.fillPlayers"]').isDisabled(),true);await delay(4500);await page.screenshot({path:'artifacts/villa-host-50.png'});
+ await page.getByRole('button',{name:'園區',exact:true}).click();await delay(1200);await page.screenshot({path:'artifacts/villa-campus.png'});
+ await page.locator('.test-lab summary').click();page.once('dialog',d=>d.accept());await page.locator('[data-action="removeTest"]').click();await page.waitForFunction(()=>document.querySelector('#testCount')?.textContent.includes('0 / 50 人'));
+ await page.locator('#testName').fill('別墅設計師');await page.locator('[data-action="joinTest"]').click();await page.waitForFunction(()=>document.querySelector('#testCount')?.textContent.includes('真人 1'));
+ await page.locator('[data-action="h.fillPlayers"]').click();await page.waitForFunction(()=>document.querySelector('#testCount')?.textContent.includes('測試 49'));await page.waitForSelector('h2:text("董事長已就位")');
+ await page.locator('.test-lab summary').click();await page.getByRole('button',{name:'前往研發一處',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#where')?.textContent==='研發一處',{},{timeout:40000});await delay(600);await page.screenshot({path:'artifacts/villa-white-lab.png'});
+ await page.getByRole('button',{name:'前往林蔭花園',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#where')?.textContent==='林蔭花園',{},{timeout:40000});await page.screenshot({path:'artifacts/villa-garden.png'});
+ await page.getByRole('button',{name:'前往吸菸區',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#where')?.textContent==='吸菸區',{},{timeout:40000});
+ await page.getByRole('button',{name:'園區',exact:true}).click();await delay(600);const before=await page.locator('#office canvas').screenshot(),bb=await page.locator('#office canvas').boundingBox();await page.mouse.move(bb.x+bb.width*.5,bb.y+bb.height*.5);await page.mouse.down({button:'right'});await page.mouse.move(bb.x+bb.width*.5+100,bb.y+bb.height*.5,{steps:10});await page.mouse.up({button:'right'});await delay(600);assert.ok(!before.equals(await page.locator('#office canvas').screenshot()));
+ await page.getByRole('button',{name:'前往園區馬路',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#where')?.textContent==='園區馬路',{},{timeout:40000});
+ await page.getByRole('button',{name:'前往城市森林',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#where')?.textContent==='城市森林',{},{timeout:45000});
+ const state=(await app.connect()).welcome.s;assert.equal(state.players.length,50);assert.ok(state.players.some(p=>p.bot&&p.leisure.score>0),'bots play arcade while wandering');
+ await page.getByRole('button',{name:'全景',exact:true}).click();await page.setViewportSize({width:390,height:844});await delay(1500);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'artifacts/villa-mobile.png',fullPage:true});
+ assert.deepEqual(errors,[]);fs.writeFileSync('artifacts/villa-visual-verification.json',JSON.stringify({passed:true,release:'villa-2026.10.05',checks:['host-fill-real-click','50-bots-visible','fill-disabled-at-capacity','clear-bots-real-click','host-join-role','human-chair','white-lab','garden','smoking','road','forest','camera-pan','bots-play-arcade','mobile-no-overflow'],viewports:['1512x982','390x844'],errors,at:new Date().toISOString()},null,2));console.log('VILLA visual acceptance passed');
+ }finally{await browser?.close();await app.stop();}})().catch(e=>{console.error(e);process.exitCode=1;});
