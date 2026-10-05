@@ -47,12 +47,10 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
    if(m.candidate===p.id){fail(c,'不能投自己，請選擇另一位董事');return true;}
    if(m.round!==b.round){fail(c,'這一輪已結束，請依新一輪重新投票');return true;}
    b.votes[p.id]=m.candidate;b.tied=false;
-   if(Object.keys(b.votes).length===3){
-    const counts={};Object.values(b.votes).forEach(id=>counts[id]=(counts[id]||0)+1);
-    const winner=Object.keys(counts).find(id=>counts[id]>=2);
-    if(winner){b.chair=winner;computeRoles();broadcast({t:'fx',kind:'elected',name:g.players[winner].name});}
-    else{b.round++;b.votes={};b.tied=true;}
-   }
+   const counts={};Object.values(b.votes).forEach(id=>counts[id]=(counts[id]||0)+1);
+   const winner=Object.keys(counts).find(id=>counts[id]>=2);
+   if(winner){b.chair=winner;computeRoles();broadcast({t:'fx',kind:'elected',name:g.players[winner].name});}
+   else if(Object.keys(b.votes).length===3){b.round++;b.votes={};b.tied=true;}
    stateChanged();save();return true;
   }
   if(m.t==='office.move'){
