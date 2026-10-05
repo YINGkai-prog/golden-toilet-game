@@ -319,7 +319,7 @@ function safeName(s) { return String(s).replace(/[\\/:*?"<>|\s]/g, '_').slice(0,
 function publicState() {
   const ps = activePlayers().map(p => ({
     id: p.id, name: p.name, joinIdx: p.joinIdx, joinMs: p.joinMs, online: p.online || !!p.bot,
-    rank: p.rank, team: p.team, title: p.title, bot: !!p.bot,
+    rank: p.rank, team: p.team, title: p.title, bot: !!p.bot, appearance:p.appearance, dancing:!!p.dancing,
     owned: p.team === 'A' || p.team === 'B' ? ownedCount(p.team, p.id) : 0,
     motion: p.motion ? {...p.motion,path:undefined} : null, leisure: {score:p.leisure?.score||0,awaySeconds:Math.floor(p.leisure?.awaySeconds||0)},
     placed: stat(p.id).placed
@@ -339,7 +339,7 @@ function publicState() {
     players: ps,
     connected: clients.size,
     testPlayers: {active:ps.filter(p=>p.bot).length,pending:bots.filter(b=>!b.c.player).length,target:50},
-    board: game.board, ai:{mode:game.ai.mode,progress:game.ai.progress,cycles:game.ai.cycles},
+    recreation: recreation.summary(), board: game.board, ai:{mode:game.ai.mode,progress:game.ai.progress,cycles:game.ai.cycles},
     brief: game.brief,
     banners: game.banners,
     counts: { A: Object.keys(game.builds.A).length, B: Object.keys(game.builds.B).length, C:Object.keys(game.builds.C).length },
@@ -360,7 +360,7 @@ function publicState() {
 function youState(p) {
   if (!p) return null;
   return {
-    id: p.id, token: p.token, name: p.name,
+    id: p.id, token: p.token, name: p.name, mini:p.mini||null,
     arcade: p.motion?.room==='arcade'&&p.leisure?.round?.expires>now()?p.leisure.round:null,
     reviewVote: game.review.votes[p.id] || null,
     galleryVote: game.gallery.votes[p.id] || null,
@@ -595,8 +595,10 @@ const cooldowns = {};
 
 function buildOpen() { return game.phase === 'build' && !game.timeUp && game.pausedRemaining == null; }
 
+const appearances=require('./appearance.cjs')({players:()=>Object.values(game.players),clients:()=>clients});
+const recreation=require('./recreation.cjs')({getGame:()=>game,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
 const sim = require('./simulation.cjs')({getGame:()=>game,G,broadcast,stateChanged:()=>broadcastState(false),save:scheduleSave,computeRoles,buildOpen,pending:()=>pendingOps,plan:toiletPlan});
-setInterval(()=>sim.tick(),50);
+setInterval(()=>{sim.tick();recreation.tick();},50);
 
 // ---------------------------------------------------------------- 訊息處理
 function onMessage(c, m) {
@@ -604,7 +606,9 @@ function onMessage(c, m) {
   const p = c.player;
   if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect'].includes(m.t)) { if(rateOk(c)) sim.handle({player:p,reply:msg=>send(c,msg)},m); return; }
 
+  if (['mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t)) {if(rateOk(c))recreation.handle({player:p,reply:msg=>send(c,msg)},m);return;}
   switch (m.t) {
+    case 'appearance.roll': if(cooldown(c,'look',700)&&rateOk(c,2))send(c,{t:'appearance.offer',offer:appearances.offer(c)});return;
     case 'hello': {
       if (m.office) c.office = true;
       if (m.host) {
@@ -615,6 +619,7 @@ function onMessage(c, m) {
         if (found) { c.player = found; found.online = true; }
       }
       send(c, { t: 'welcome', host: c.host, you: youState(c.player), s: publicState(), builds: game.builds, stickers: game.stickers.filter(s => now() - s.at < 30000), net: c.host ? netInfo() : null, cloud: CLOUD });
+      if(!c.player&&!c.host)send(c,{t:'appearance.offer',offer:appearances.offer(c)});
       stateDirty = true;
       return;
     }
@@ -626,8 +631,9 @@ function onMessage(c, m) {
       if (!name) { send(c, { t: 'err', msg: '請輸入名字' }); return; }
       if (game.phase === 'lobby' && (!game.lobby.open || now() < game.lobby.openAt)) { send(c, { t: 'err', msg: '還沒開放報到，等主持人倒數！', code: 'notopen' }); return; }
       if (!rateOk(c, 5)) return;
+      const appearance=appearances.choose(c,m);if(!appearance){send(c,{t:'err',msg:'造型已過期，請重新隨機產生三款'});send(c,{t:'appearance.offer',offer:appearances.offer(c)});return;}
       const id = rid(5);
-      const player = { id, token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, bot:!!c.bot, rank: null, team: null, title: '', kicked: false };
+      const player = { id, appearance, token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, bot:!!c.bot, rank: null, team: null, title: '', kicked: false };
       game.players[id] = player;
       c.player = player;
       if (game.rolesPublished) assignIntern(player);
@@ -1038,7 +1044,19 @@ function botTick() {
       if(p.motion?.room!==destination)botSend(b,{t:'office.move',room:destination});
       b.nextMove=t+rnd(22000,40000);
     }
-    if(p.motion?.room==='arcade'&&['lobby','roles','build','poster'].includes(ph)) {
+    if(p.motion?.room==='lounge'){
+      const r=game.recreation?.coffee,e=r?.entries[p.id];
+      if(p.joinIdx%3===0){if(!p.dancing)botSend(b,{t:'dance'});}
+      else if(!r||r.finished||!e)botSend(b,{t:'coffee.join'});
+      else if(!e.forfeited&&t>=e.ready&&t>=r.starts)botSend(b,{t:'coffee.step',round:r.id,step:e.step});
+    }
+    if(p.motion?.room==='courtyard'&&t>=(b.nextKick||0)){const ball=game.recreation.football;botSend(b,{t:'office.move',room:'courtyard',x:ball.x,z:ball.z});b.nextKick=t+2200;}
+    if(p.motion?.room==='arcade'&&p.joinIdx%2){
+      const r=p.mini;
+      if(!r||r.expires<t)botSend(b,{t:'mini.start',game:p.joinIdx%4===1?'darts':'pinball'});
+      else botSend(b,{t:'mini.input',round:r.id,action:r.type==='darts'?'throw':t%1000<500?'left':'right'});
+    }
+    if(p.motion?.room==='arcade'&&p.joinIdx%2===0&&['lobby','roles','build','poster'].includes(ph)) {
       const r=p.leisure?.round;
       if(!r||r.expires<t)botSend(b,{t:'arcade.start',game:'pulse'});
       else if(t>=r.ready)botSend(b,{t:'arcade.hit',round:r.id,tile:Math.random()<.8?r.target:(r.target+1)%4});
@@ -1184,7 +1202,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'villa-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'nightshift-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
