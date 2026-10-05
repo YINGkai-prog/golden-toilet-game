@@ -13,7 +13,7 @@
     { id: 'launch',  name: '發表會', long: '上市發表會',     hint: '金馬桶正式上市' }
   ];
   // One layout drives architecture, seats, collision and server navigation.
-  G.LAYOUT = 'forest-villa-1';
+  G.LAYOUT = 'nightshift-villa-2';
   G.ROOMS = [
     {id:'A',name:'研發一處',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
     {id:'B',name:'研發二處',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
@@ -23,7 +23,7 @@
     {id:'arcade',name:'遊戲室',sub:'SIDE QUEST',x:-9,z:-22,w:20,d:16,color:'#a18abd'},
     {id:'wc',name:'廁所',sub:'RESET YOURSELF',x:9,z:-22,w:14,d:16,color:'#80aaa9'},
     {id:'atrium',name:'迎賓大廳',sub:'GOLDEN BOX / ARRIVAL',x:0,z:28,w:21,d:34,color:'#92a8a2',open:true},
-    {id:'courtyard',name:'中庭花園',sub:'OPEN SKY / INNER GARDEN',x:0,z:1,w:21,d:18,color:'#71986c',outdoor:true},
+    {id:'courtyard',name:'中庭足球場',sub:'OVERTIME / FOOTBALL',x:0,z:1,w:21,d:18,color:'#71986c',outdoor:true},
     {id:'terrace',name:'戶外露台',sub:'TERRACE / SLOW DOWN',x:0,z:49,w:84,d:8,color:'#b3a284',outdoor:true},
     {id:'garden',name:'林蔭花園',sub:'BOTANICAL WALK',x:52,z:-15,w:20,d:46,color:'#789466',outdoor:true},
     {id:'smoking',name:'吸菸區',sub:'OUTDOOR / SMOKING',x:-52,z:19,w:16,d:18,color:'#9eaa94',outdoor:true},
@@ -52,11 +52,12 @@
     ...[-36,-30,-24].map(x=>({type:'coffee',x,z:-27,w:4,d:2})),
     ...[-36,-25].map(x=>({type:'sofa',x,z:-20,w:5,d:3})),
     ...[-16,-11,-6].map(x=>({type:'arcade',x,z:-27,w:2.3,d:2})),
-    {type:'gameTable',x:-9,z:-20,w:7,d:3},
+    {type:'pinball',x:-11,z:-20,w:3,d:4},
+    {type:'darts',x:-4,z:-20,w:2,d:2},
     ...[5,9,13].map(x=>({type:'toilet',x,z:-27,w:2.5,d:3})),
     {type:'boardTable',x:26,z:29,w:15,d:7},
     {type:'reception',x:0,z:25,w:8,d:2},
-    {type:'planter',x:0,z:0,w:8,d:8},
+
     ...[-33,-21,21,33].map(x=>({type:'patio',x,z:49,w:4,d:3})),
     {type:'smoking',x:-54,z:16,w:5,d:3},
     ...[-29,-21].flatMap(z=>[22,35].map(x=>({type:'rack',x,z,w:4,d:2.5}))),
