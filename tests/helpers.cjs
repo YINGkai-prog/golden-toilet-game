@@ -12,7 +12,7 @@ async function start() {
   fs.copyFileSync(path.join(ROOT, 'server.js'), path.join(tmp, 'server.js'));
   fs.copyFileSync(path.join(ROOT,'simulation.cjs'),path.join(tmp,'simulation.cjs'));
   fs.copyFileSync(path.join(ROOT,'navigation.cjs'),path.join(tmp,'navigation.cjs'));
-  for(const file of ['appearance.cjs','recreation.cjs'])fs.copyFileSync(path.join(ROOT,file),path.join(tmp,file));
+  for(const file of ['appearance.cjs','recreation.cjs','campus.cjs'])fs.copyFileSync(path.join(ROOT,file),path.join(tmp,file));
   fs.cpSync(path.join(ROOT, 'public'), path.join(tmp, 'public'), { recursive: true });
   const port = await new Promise(resolve => { const s = net.createServer(); s.listen(0,'127.0.0.1',()=>{ const p=s.address().port;s.close(()=>resolve(p)); }); });
   // A file log also works in Windows sandboxes that cannot create Node pipes.
@@ -39,6 +39,7 @@ async function start() {
   }};
 }
 async function connect(base,hello={}) {
+  const activeTimer=setInterval(()=>{if(ws.readyState===1)ws.send(JSON.stringify({t:"input.active"}));},10000);
   const ws = new WebSocket(base.replace('http:','ws:')+'/ws');
   const queue = []; const pending = [];
   ws.addEventListener('message',e=>{
@@ -57,7 +58,8 @@ async function connect(base,hello={}) {
     ws.addEventListener('open',()=>{clearTimeout(timer);resolve();},{once:true});
     ws.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('WebSocket error'));},{once:true});
   });
-  const peer={send:m=>ws.send(JSON.stringify(m)),wait,close:()=>{for(const w of pending){clearTimeout(w.timer);w.reject(new Error('Peer closed'));}pending.length=0;ws.close();},queue};
+  activeTimer.unref();
+  const peer={idle:()=>clearInterval(activeTimer),send:m=>ws.send(JSON.stringify(m)),wait,close:()=>{clearInterval(activeTimer);for(const w of pending){clearTimeout(w.timer);w.reject(new Error('Peer closed'));}pending.length=0;ws.close();},queue};
   peer.send({t:'hello',...hello});
   peer.welcome=await wait('welcome');
   return peer;

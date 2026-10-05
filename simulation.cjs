@@ -10,7 +10,7 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
   if(!p.leisure)p.leisure={score:0,round:null,awaySeconds:0};
  }
  function travel(p,id,point){
-  init(p);let r=room(id);const m=p.motion;
+  init(p);let r=room(id);const m=p.motion;const banned=p.indoorBanUntil>Date.now();if(p.expelPending)return false;
   if(!r||id==='core'&&p.rank!=='boss')return false;
   if(point&&Number.isFinite(point.x)&&Number.isFinite(point.z)&&r.base){r=nav.roomAt(point);id=r.id;if(id==='core'&&p.rank!=='boss')return false;}
   const occupied=new Set(Object.values(getGame().players).filter(q=>q!==p&&!q.kicked&&(q.motion?.room===id||q.motion?.destination===id)).map(q=>q.motion.slot));
@@ -22,8 +22,9 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
   if(point&&Number.isFinite(point.x)&&Number.isFinite(point.z)){
    tx=point.x;tz=point.z;
   }
-  const target=nav.nearest({x:tx,z:tz},r,p.rank==='boss');if(!target)return false;
-  const path=nav.path(m,target,p.rank==='boss'||nav.insideCore(m));if(!path)return false;
+  if(banned&&nav.insideOffice({x:tx,z:tz}))return false;
+  const target=nav.nearest({x:tx,z:tz},r,p.rank==='boss',banned);if(!target)return false;
+  const path=nav.path(m,target,p.rank==='boss'||nav.insideCore(m),banned);if(!path)return false;
   m.path=path;
   m.destination=id;m.room='transit';p.leisure.round=null;return true;
  }
@@ -52,7 +53,7 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
    stateChanged();save();return true;
   }
   if(m.t==='office.move'){
-   if(typeof m.room!=='string'||!travel(p,m.room,{x:m.x,z:m.z})){fail(c,'機房門禁：僅董事長可進入');return true;}
+   if(typeof m.room!=='string'||!travel(p,m.room,{x:m.x,z:m.z})){fail(c,p.expelPending?'OMNI 正在請你離開，稍等一下。':p.indoorBanUntil>Date.now()?'OMNI 門禁剩餘 '+Math.ceil((p.indoorBanUntil-Date.now())/1000)+' 秒，先去泳池或公頻吧。':'目的地無法抵達，機房僅董事長可進入');return true;}
    stateChanged();save();return true;
   }
   if(m.t==='core.inspect'){

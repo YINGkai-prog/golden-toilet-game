@@ -64,10 +64,9 @@ window.Office=class extends Base{
   for(let i=0;i<this.leds.length;i++)this.leds[i].material.color.set((Math.floor(time/170)+i*7+(this.nightState?.ai.cycles||0))%9<3?'#d1ffe1':'#307357');
   for(const a of this.actors.values()){a.aura.material.opacity=.45+Math.sin(time*.003+a.seed)*.25;if(a.p.dancing&&!this.reduced){a.body.rotation.z=Math.sin(time*.009+a.seed)*.23;a.limbs[0].rotation.z=-1.7+Math.sin(time*.01)*.5;a.limbs[2].rotation.z=1.7-Math.sin(time*.01)*.5;}else{a.body.rotation.z=0;a.limbs[0].rotation.z=a.limbs[2].rotation.z=0;}}
   if(time-this.labelAt<80)return;this.labelAt=time;const w=this.el.clientWidth,h=this.el.clientHeight,used=[];const list=[...this.actors.values()].map(a=>{const v=a.group.position.clone().add(new T.Vector3(0,2.5,0)).project(this.camera);return{a,x:(v.x+1)*w/2,y:(1-v.y)*h/2,z:v.z};}).sort((a,b)=>a.y-b.y);
-  for(const {a,x,y,z}of list){const visible=x>0&&x<w&&y>0&&y<h&&z<1&&!this.paused;a.tag.hidden=!visible;a.line.style.display=visible?'':'none';if(!visible)continue;const tw=w<500?85:104,th=w<500?29:33;let lx=Math.min(w-tw-4,Math.max(4,x+12)),ly=Math.max(6,y-52);let found=false;
-   // Try rows above and below the avatar; leaders retain the spatial relationship.
-   for(let row=0;row<18&&!found;row++){for(const sign of [-1,1]){const cy=Math.max(4,Math.min(h-th-10,ly+sign*row*(th+3)));for(const side of [1,-1]){const cx=Math.min(w-tw-4,Math.max(4,side===1?lx:x-tw-12));if(!used.some(r=>cx<r.x+tw+3&&cx+tw+3>r.x&&cy<r.y+th+3&&cy+th+3>r.y)){lx=cx;ly=cy;found=true;break;}}if(found)break;}}
-   used.push({x:lx,y:ly});a.tag.style.transform=`translate(${lx}px,${ly}px)`;a.line.setAttribute('d',`M${x},${y} Q${x},${ly+th} ${lx+tw/2},${ly+th}`);
+  for(const {a,x,y,z}of list){const visible=x>0&&x<w&&y>0&&y<h&&z<1&&!this.paused;a.tag.hidden=!visible;a.line.style.display=visible?'':'none';if(!visible)continue;const tw=56,th=19;let lx=Math.min(w-tw-4,Math.max(4,x+7)),ly=Math.max(6,y-31),found=false;
+   for(const [dx,dy]of [[7,-31],[-63,-31],[7,-9],[-63,-9],[7,-51],[-63,-51]]){const cx=Math.max(4,Math.min(w-tw-4,x+dx)),cy=Math.max(4,Math.min(h-th-4,y+dy));if(!used.some(r=>cx<r.x+tw+2&&cx+tw+2>r.x&&cy<r.y+th+2&&cy+th+2>r.y)){lx=cx;ly=cy;found=true;break;}}
+   a.tag.style.opacity=found||a.p.id===this.me?'1':'.5';used.push({x:lx,y:ly});a.tag.style.transform=`translate(${lx}px,${ly}px)`;a.line.setAttribute('d',`M${x},${y} L${lx+tw/2},${ly+th}`);
   }
  }
 };})();

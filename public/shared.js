@@ -13,7 +13,7 @@
     { id: 'launch',  name: '發表會', long: '上市發表會',     hint: '金馬桶正式上市' }
   ];
   // One layout drives architecture, seats, collision and server navigation.
-  G.LAYOUT = 'nightshift-villa-2';
+  G.LAYOUT = 'summit-villa-3';
   G.ROOMS = [
     {id:'A',name:'研發一處',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
     {id:'B',name:'研發二處',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
@@ -25,6 +25,7 @@
     {id:'atrium',name:'迎賓大廳',sub:'GOLDEN BOX / ARRIVAL',x:0,z:28,w:21,d:34,color:'#92a8a2',open:true},
     {id:'courtyard',name:'中庭足球場',sub:'OVERTIME / FOOTBALL',x:0,z:1,w:21,d:18,color:'#71986c',outdoor:true},
     {id:'terrace',name:'戶外露台',sub:'TERRACE / SLOW DOWN',x:0,z:49,w:84,d:8,color:'#b3a284',outdoor:true},
+    {id:'pool',name:'月光泳池',sub:'A × B / WATER VOLLEY',x:52,z:28,w:20,d:24,color:'#6cbbd0',outdoor:true},
     {id:'garden',name:'林蔭花園',sub:'BOTANICAL WALK',x:52,z:-15,w:20,d:46,color:'#789466',outdoor:true},
     {id:'smoking',name:'吸菸區',sub:'OUTDOOR / SMOKING',x:-52,z:19,w:16,d:18,color:'#9eaa94',outdoor:true},
     {id:'road',name:'園區馬路',sub:'FOREST AVENUE',x:0,z:65,w:124,d:12,color:'#899aa0',outdoor:true},

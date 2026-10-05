@@ -316,10 +316,10 @@ function makeZip(files) {
 function safeName(s) { return String(s).replace(/[\\/:*?"<>|\s]/g, '_').slice(0, 20) || 'player'; }
 
 // ---------------------------------------------------------------- 對外狀態
-function publicState() {
+function publicState(includeHistory=false) {
   const ps = activePlayers().map(p => ({
-    id: p.id, name: p.name, joinIdx: p.joinIdx, joinMs: p.joinMs, online: p.online || !!p.bot,
-    rank: p.rank, team: p.team, title: p.title, bot: !!p.bot, appearance:p.appearance, dancing:!!p.dancing,
+    id: p.id, name: p.name, joinIdx: p.joinIdx, joinMs: p.joinMs, online: p.online || !!p.bot || !!p.aiControlled,
+    rank: p.rank, team: p.team, title: p.title, bot: !!p.bot, appearance:p.appearance, dancing:!!p.dancing, aiControlled:!!p.aiControlled, indoorBanUntil:p.indoorBanUntil||0, expelPending:!!p.expelPending, sportsTeam:campus.side(p),
     owned: p.team === 'A' || p.team === 'B' ? ownedCount(p.team, p.id) : 0,
     motion: p.motion ? {...p.motion,path:undefined} : null, leisure: {score:p.leisure?.score||0,awaySeconds:Math.floor(p.leisure?.awaySeconds||0)},
     placed: stat(p.id).placed
@@ -339,7 +339,7 @@ function publicState() {
     players: ps,
     connected: clients.size,
     testPlayers: {active:ps.filter(p=>p.bot).length,pending:bots.filter(b=>!b.c.player).length,target:50},
-    recreation: recreation.summary(), board: game.board, ai:{mode:game.ai.mode,progress:game.ai.progress,cycles:game.ai.cycles},
+    campus:campus.summary(includeHistory), recreation: recreation.summary(), board: game.board, ai:{mode:game.ai.mode,progress:game.ai.progress,cycles:game.ai.cycles},
     brief: game.brief,
     banners: game.banners,
     counts: { A: Object.keys(game.builds.A).length, B: Object.keys(game.builds.B).length, C:Object.keys(game.builds.C).length },
@@ -596,14 +596,17 @@ const cooldowns = {};
 function buildOpen() { return game.phase === 'build' && !game.timeUp && game.pausedRemaining == null; }
 
 const appearances=require('./appearance.cjs')({players:()=>Object.values(game.players),clients:()=>clients});
-const recreation=require('./recreation.cjs')({getGame:()=>game,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
+const recreation=require('./recreation.cjs')({externalSports:true,getGame:()=>game,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
 const sim = require('./simulation.cjs')({getGame:()=>game,G,broadcast,stateChanged:()=>broadcastState(false),save:scheduleSave,computeRoles,buildOpen,pending:()=>pendingOps,plan:toiletPlan});
-setInterval(()=>{sim.tick();recreation.tick();},50);
+const campus=require('./campus.cjs')({getGame:()=>game,G,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
+setInterval(()=>{sim.tick();recreation.tick();campus.tick();},50);
 
 // ---------------------------------------------------------------- 訊息處理
 function onMessage(c, m) {
   if (!m || typeof m.t !== 'string') return;
   const p = c.player;
+  if(p&&!c.bot&&['input.active','chat.send','sports.hit','office.move','board.vote','place','remove','sticker','banner','visit','react','mini.start','mini.input','coffee.join','coffee.step','dance','arcade.start','arcade.hit','core.inspect','brief','vote','bossPick','poster','price','survey','gvote','gpick'].includes(m.t))campus.activity(p);
+  if(['chat.send','input.active','sports.hit'].includes(m.t)){if(rateOk(c))campus.handle({player:p,host:c.host,reply:msg=>send(c,msg),get chatAt(){return c.chatAt;},set chatAt(v){c.chatAt=v;}},m);return;}
   if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect'].includes(m.t)) { if(rateOk(c)) sim.handle({player:p,reply:msg=>send(c,msg)},m); return; }
 
   if (['mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t)) {if(rateOk(c))recreation.handle({player:p,reply:msg=>send(c,msg)},m);return;}
@@ -618,7 +621,7 @@ function onMessage(c, m) {
         const found = Object.values(game.players).find(q => q.token === m.token && !q.kicked);
         if (found) { c.player = found; found.online = true; }
       }
-      send(c, { t: 'welcome', host: c.host, you: youState(c.player), s: publicState(), builds: game.builds, stickers: game.stickers.filter(s => now() - s.at < 30000), net: c.host ? netInfo() : null, cloud: CLOUD });
+      send(c, { t: 'welcome', host: c.host, you: youState(c.player), s: publicState(true), builds: game.builds, stickers: game.stickers.filter(s => now() - s.at < 30000), net: c.host ? netInfo() : null, cloud: CLOUD });
       if(!c.player&&!c.host)send(c,{t:'appearance.offer',offer:appearances.offer(c)});
       stateDirty = true;
       return;
@@ -633,7 +636,7 @@ function onMessage(c, m) {
       if (!rateOk(c, 5)) return;
       const appearance=appearances.choose(c,m);if(!appearance){send(c,{t:'err',msg:'造型已過期，請重新隨機產生三款'});send(c,{t:'appearance.offer',offer:appearances.offer(c)});return;}
       const id = rid(5);
-      const player = { id, appearance, token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, bot:!!c.bot, rank: null, team: null, title: '', kicked: false };
+      const player = { id, appearance, lastActionAt:now(), token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, bot:!!c.bot, rank: null, team: null, title: '', kicked: false };
       game.players[id] = player;
       c.player = player;
       if (game.rolesPublished) assignIntern(player);
@@ -936,7 +939,7 @@ function removeBots() {
 }
 function botSend(b, m) {
   try { onMessage(b.c, m); } catch (e) { /* ignore */ }
-  if (b.c.player && !b.c.player.bot) { b.c.player.bot = true; }
+  if (!b.assisted && b.c.player && !b.c.player.bot) { b.c.player.bot = true; }
 }
 // 每個機器人在每一關只做一次的動作：在「開始後 a~b 秒」之間的隨機時間做
 function botOnce(b, key, a, bSec, fn) {
@@ -968,7 +971,7 @@ function botBuild() {
   for (const team of ['A', 'B']) {
     const plan = botPlans[team] || (botPlans[team] = toiletPlan(team));
     const visited = lastVisit[team] && now() - lastVisit[team] < 20000;
-    const crew = bots.filter(b => b.c.player && !b.c.player.kicked && b.c.player.team === team && b.c.player.motion?.room===team && (!b.lazy || visited));
+    const crew = controllers().filter(b => b.c.player && !b.c.player.kicked && b.c.player.team === team && b.c.player.motion?.room===team && (!b.lazy || visited));
     if (!crew.length) continue;
     const b0 = game.builds[team];
     const perTick = Math.max(1, Math.ceil(plan.length / Math.max(8, (dur * 0.6) / 0.5)));
@@ -987,7 +990,7 @@ function botBuild() {
   }
   // 主管與老闆的互動
   const elapsed = (now() - (game.phaseStartedAt || now())) / 1000;
-  for (const b of bots) {
+  for (const b of controllers()) {
     const p = b.c.player; if (!p || p.kicked) continue;
     const team = p.team === 'B' ? 'B' : p.team === 'A' ? 'A' : pick(['A', 'B']);
     if ((p.rank === 'manager' || p.rank === 'lead') && Math.random() < 0.012) botSend(b, { t: 'sticker', team, pos: [rnd(-4, 4), rnd(3, 9), rnd(-4, 4)], text: pick(G.STICKERS) });
@@ -1006,10 +1009,14 @@ function botBuild() {
   }
 }
 
+const assistants=new Map();
+function controllers(){return [...bots,...[...assistants.values()].filter(b=>b.c.player.aiControlled&&!b.c.player.kicked&&game.players[b.c.player.id]===b.c.player)];}
 function botTick() {
-  if (!bots.length) return;
+  for(const [id,b] of assistants)if(!b.c.player.aiControlled||b.c.player.kicked||game.players[id]!==b.c.player)assistants.delete(id);
+  for(const p of activePlayers())if(!p.bot&&p.aiControlled&&!assistants.has(p.id))assistants.set(p.id,{assisted:true,lazy:false,c:{bot:true,open:true,player:p,host:false,bucket:20,lastFill:now(),cd:{}},done:{},at:{}});
+  if (!controllers().length) return;
   const ph = game.phase, t = now();
-  for (const b of bots) {
+  for (const b of controllers()) {
     const p = b.c.player;
     if (!p) {
       // Human arrivals win any race against queued test players.
@@ -1037,10 +1044,10 @@ function botTick() {
     const phaseKey=ph+':'+game.phaseStartedAt;
     if(b.movementPhase!==phaseKey){b.movementPhase=phaseKey;b.nextMove=0;}
     if(!p.motion?.destination&&t>=(b.nextMove||0)) {
-      const rest=['lounge','arcade','garden','courtyard','terrace','smoking','forest'];
+      const rest=['lounge','arcade','garden','courtyard','pool','terrace','smoking','forest'];
       const work=sim.home(p);
       const visit=b.visits||0;b.visits=visit+1;
-      const destination=ph==='build'&&!b.lazy?work:ph==='review'||ph==='roles'&&p.rank==='board'?'board':p.rank==='boss'&&ph==='build'?'core':b.lazy?rest[(p.joinIdx+visit)%rest.length]:(p.joinIdx+visit)%3===0?rest[(p.joinIdx+visit)%rest.length]:work;
+      const destination=p.indoorBanUntil>t?'pool':ph==='build'&&!b.lazy?work:ph==='review'||ph==='roles'&&p.rank==='board'?'board':p.rank==='boss'&&ph==='build'?'core':b.lazy?rest[(p.joinIdx+visit)%rest.length]:(p.joinIdx+visit)%3===0?rest[(p.joinIdx+visit)%rest.length]:work;
       if(p.motion?.room!==destination)botSend(b,{t:'office.move',room:destination});
       b.nextMove=t+rnd(22000,40000);
     }
@@ -1051,6 +1058,7 @@ function botTick() {
       else if(!e.forfeited&&t>=e.ready&&t>=r.starts)botSend(b,{t:'coffee.step',round:r.id,step:e.step});
     }
     if(p.motion?.room==='courtyard'&&t>=(b.nextKick||0)){const ball=game.recreation.football;botSend(b,{t:'office.move',room:'courtyard',x:ball.x,z:ball.z});b.nextKick=t+2200;}
+    if(p.motion?.room==='pool'&&t>=(b.nextVolley||0)){const ball=game.campus.volley;botSend(b,{t:'office.move',room:'pool',x:ball.x,z:ball.z});botSend(b,{t:'sports.hit',game:'volley'});b.nextVolley=t+1300;}
     if(p.motion?.room==='arcade'&&p.joinIdx%2){
       const r=p.mini;
       if(!r||r.expires<t)botSend(b,{t:'mini.start',game:p.joinIdx%4===1?'darts':'pinball'});
@@ -1133,7 +1141,7 @@ function pngEncode(w, h, rgb) {
 
 // ---------------------------------------------------------------- HTTP
 const embCache = {};
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.jpg':'image/jpeg','.jpeg':'image/jpeg','.webm':'video/webm','.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json' };
 
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
@@ -1202,7 +1210,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'nightshift-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'summit-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
