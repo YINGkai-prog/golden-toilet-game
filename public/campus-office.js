@@ -6,11 +6,12 @@ const rect=(c,x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
 const shade=(hex,f)=>{const c=new T.Color(hex);c.multiplyScalar(f);return '#'+c.getHexString();};
 window.Office=class extends Base{
  constructor(el,move){super(el,move);this.pages=[];this.drones=[];this.flowTime={value:0};this.projectionBuilds={A:{},B:{},C:{}};this.projectionState=null;this.posterImages=new Map();this.pageDirty=true;this.liftAt=performance.now();
-  this.makeProjections();this.makePool();this.makeOmni();this.makeScoreboards();this.home();this.focus.copy(this.desiredFocus);this.goal.radius=178;this.radius=178;this.theta=.1;this.phi=.66;
+  this.makeProjections();this.makePool();this.makeOmni();this.makeScoreboards();this.batchCampus();this.home();this.focus.copy(this.desiredFocus);this.goal.radius=178;this.radius=178;this.theta=.1;this.phi=.66;
  }
- dynamicBox(parent,c,x,y,z,w,h,d,glow=false){const m=new T.Mesh(new T.BoxGeometry(w,h,d),glow?new T.MeshBasicMaterial({color:c}):this.mat(c));m.position.set(x,y,z);parent.add(m);return m;}
+ dynamicBox(parent,c,x,y,z,w,h,d,glow=false){const m=new T.Mesh(this.boxGeo,glow?(this.basicMats||(this.basicMats=new Map())).get(c)||(()=>{const mat=new T.MeshBasicMaterial({color:c});this.basicMats.set(c,mat);return mat;})():this.mat(c));m.scale.set(w,h,d);m.position.set(x,y,z);m.userData.campusStatic=parent===this.scene;parent.add(m);return m;}
+ batchCampus(){this.scene.updateMatrixWorld(true);const groups=new Map();for(const m of [...this.scene.children]){if(!m.userData.campusStatic||this.pages.some(p=>p.beam===m))continue;const key=m.material.uuid;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(m);}for(const items of groups.values()){const mesh=new T.InstancedMesh(this.boxGeo,items[0].material,items.length);items.forEach((m,i)=>{mesh.setMatrixAt(i,m.matrixWorld);this.scene.remove(m);});this.scene.add(mesh);}}
  makeProjections(){for(const [i,team]of ['A','B','C'].entries()){
-  const page=canvas(1536,960),texture=new T.CanvasTexture(page);texture.encoding=T.sRGBEncoding;texture.anisotropy=this.renderer.capabilities.getMaxAnisotropy();texture.minFilter=T.LinearMipmapLinearFilter;
+  const page=canvas(1536,960),texture=new T.CanvasTexture(page);texture.encoding=T.sRGBEncoding;texture.anisotropy=this.renderer.capabilities.getMaxAnisotropy();texture.minFilter=T.LinearFilter;texture.generateMipmaps=false;
   const cloth=new T.Mesh(new T.PlaneGeometry(31,19.375,24,12),new T.MeshBasicMaterial({map:texture,side:T.DoubleSide}));cloth.position.set((i-1)*34,25,-59);this.scene.add(cloth);cloth.userData.room='screen:'+team;this.hits.push(cloth);
   const beam=this.dynamicBox(this.scene,['#8bd4c0','#89b6ed','#c3a4ee'][i],cloth.position.x,34.85,-59,31.6,.13,.2,true);
   this.dynamicBox(this.scene,'#29474f',cloth.position.x,15.28,-59,31.6,.15,.2);
@@ -44,7 +45,7 @@ window.Office=class extends Base{
   names.forEach((v,i)=>font(c,19,'#b9cecc',v,1135,581+i*33));
   const posters=s?.poster?.posters?.filter(v=>v.hasImg)||[];if(posters.length){const item=posters[(['A','B','C'].indexOf(team))%posters.length],img=this.posterImages.get(item.author+':'+item.v);if(img?.complete&&img.naturalWidth){rect(c,1120,517,365,275,'#142b34');font(c,18,accent,'上市海報 / '+posters.length+' 件作品',1135,546);const scale=Math.min(170/img.naturalWidth,225/img.naturalHeight);c.drawImage(img,1135,560,img.naturalWidth*scale,img.naturalHeight*scale);font(c,17,'#d4e6dd',item.name.slice(0,11),1320,605);font(c,16,'#9fbbb9','市調 '+(s.poster.surveyCount||0)+' 份',1320,646);font(c,16,'#9fbbb9','NT$ '+Math.round(s.poster.avgPrice||0),1320,679);}}
   font(c,17,accent,'主管說  /  '+(p.comment||'「就改一點點。」').slice(0,22),1135,813);
-  const score=s?.recreation?.football.score||[0,0],volley=s?.campus?.volley.score||[0,0];font(c,20,'#9fbcba',`⚽ 一處 ${score[0]} : ${score[1]} 二處     🏐 ${volley[0]} : ${volley[1]}     ／  娛樂獎獨立計分`,43,920);font(c,18,accent,'ENTIRE PAGE / '+team+' · SYNC',1222,920);if(s?.phase==='review'){rect(c,40,891,1130,45,'#0a1b25');font(c,23,'#dceadd','提案票選  一處 '+s.review.tally.A+' 票 ／ 二處 '+s.review.tally.B+' 票 ／ AI '+s.review.tally.C+' 票',43,920);}if(s?.phase==='launch'){rect(c,40,891,1130,45,'#0a1b25');font(c,23,'#e0d299','🚽 金馬桶正式上市 ／ '+(s.launch?.blocks||0)+' 塊共同創作 ／ NT$ '+(s.launch?.price||0),43,920);}
+  const score=s?.recreation?.football.score||[0,0],volley=s?.campus?.volley.score||[0,0];font(c,20,'#9fbcba',`⚽ 一處 ${score[0]} : ${score[1]} 二處     🏐 ${volley[0]} : ${volley[1]}     ／  娛樂獎獨立計分`,43,920);font(c,18,accent,'ENTIRE PAGE / '+team+' · SYNC',1222,920);if(s?.phase==='review'){rect(c,40,891,1130,45,'#0a1b25');font(c,23,'#dceadd','提案票選  一處 '+s.review.tally.A+' 分 ／ 二處 '+s.review.tally.B+' 分 ／ AI '+s.review.tally.C+' 分',43,920);}if(s?.phase==='launch'){rect(c,40,891,1130,45,'#0a1b25');font(c,23,'#e0d299','🚽 '+(s.launch?.finance?.bankrupt?'公司倒閉':s.launch?.finance?.profit<0?'虧損上市':'獲利上市')+' ／ 損益 NT$ '+(s.launch?.finance?.profit||0).toLocaleString()+' ／ 售出 '+(s.launch?.finance?.units||0)+' 座',43,920);}
   p.texture.needsUpdate=true;p.count=count;
  }
  makePool(){
@@ -66,7 +67,7 @@ window.Office=class extends Base{
    sphere('#ab8b46',side*.53,1.44,0,.18);sphere('#27383e',side*.64,1.13,.08,.2,.7,1.4,.8);sphere('#d6ad55',side*.69,.89,.13,.15);sphere('#4c5d60',side*.26,.54,0,.19,.8,1.5,1);sphere('#cfa956',side*.27,.27,.14,.2,1,.65,1.4);
   }
   sphere('#d5b266',0,1.8,.53,.17,1,1,.38);this.dynamicBox(body,'#20333a',0,1.7,.56,.37,.08,.04);
-  const label=new T.Sprite(new T.SpriteMaterial({map:this.text('ROG OMNI / 歡迎加班','#efdb98',30),depthWrite:false}));label.position.y=3.7;label.scale.set(4.2,.79,1);o.add(label);this.omniLabel=label;
+  const label=new T.Sprite(new T.SpriteMaterial({map:this.text('ROG OMNI / 歡迎加班','#efdb98',30),depthWrite:false}));label.position.y=3.7;label.scale.set(4.2,.79,1);o.add(label);this.omniLabel=label;for(const child of body.children)child.position.y-=1.55;body.position.y=1.55;
  }
  boardTexture(w=768,h=160){const cv=canvas(w,h),tx=new T.CanvasTexture(cv);tx.encoding=T.sRGBEncoding;return{canvas:cv,texture:tx};}
  makeScoreboards(){this.soccerBoard=this.boardTexture();const m=new T.Mesh(new T.PlaneGeometry(16,3.33),new T.MeshBasicMaterial({map:this.soccerBoard.texture,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));m.rotation.x=-Math.PI/2;m.position.set(0,.27,5.8);this.scene.add(m);
@@ -90,13 +91,13 @@ window.Office=class extends Base{
  focusMe(){delete this.el.dataset.focusScreen;document.body.classList.remove('screen-focus');super.focusMe();}
  inspect(id){delete this.el.dataset.focusScreen;document.body.classList.remove('screen-focus');super.inspect(id);}
  loop(time){if(this.flowTime)this.flowTime.value=this.reduced?0:time/1000;
-  if(this.pages){if(this.pageDirty&&time-(this.lastPage||0)>650){this.lastPage=time;this.pages.forEach(p=>this.drawPage(p));this.pageDirty=false;}
+  if(this.pages){if(this.pageDirty&&time-(this.lastPage||0)>1000){this.lastPage=time;this.pages.forEach(p=>this.drawPage(p));this.pageDirty=false;}
    const lift=this.reduced?1:Math.min(1,(time-this.liftAt)/2600);for(const p of this.pages){p.cloth.scale.y=Math.max(.025,lift);p.cloth.position.y=15.3125+9.6875*lift;p.beam.position.y=15.4+19.45*lift;}
    for(const d of this.drones){const dy=this.reduced?0:Math.sin(time*.0013+d.seed)*.09;d.drone.position.y=19.55+19.45*lift+dy;d.rotors.forEach(r=>r.rotation.y=this.reduced?0:time*.06);const pos=d.cable.geometry.attributes.position;pos.setY(0,d.drone.position.y-.3);pos.setY(1,15.4+19.45*lift);pos.needsUpdate=true;}
-   const o=this.campusState?.omni;if(o){this.omniMesh.position.lerp(new T.Vector3(o.x,0,o.z),.28);this.omniMesh.rotation.y=o.heading||0;const age=(Date.now()-(o.flipAt||0))/1000,flip=!this.reduced&&age>=0&&age<.9;this.omniBody.rotation.x=flip?age/.9*Math.PI*2:0;this.omniBody.position.y=flip?Math.sin(age/.9*Math.PI)*1.5:Math.sin(time*.004)*.03;this.omniLabel.material.color.set(o.mode==='chase'?'#ff8c66':'#ffffff');}
+   const o=this.campusState?.omni;if(o){this.omniMesh.position.lerp(new T.Vector3(o.x,0,o.z),.28);this.omniMesh.rotation.y=o.heading||0;const age=(Date.now()-(o.flipAt||0))/1000,flip=!this.reduced&&age>=0&&age<.9;this.omniBody.rotation.x=flip?age/.9*Math.PI*2:0;this.omniBody.position.y=flip?1.92+Math.sin(age/.9*Math.PI)*1.1:1.72+Math.sin(time*.004)*.03;this.omniLabel.material.color.set(o.mode==='chase'?'#ff8c66':'#ffffff');}
    const v=this.campusState?.volley;if(v){this.volleyMesh.position.lerp(new T.Vector3(v.x,Math.max(.5,v.y),v.z),.45);this.volleyMesh.rotation.z+=.018;}
    const b=this.recreation?.football;if(b){const recent=Math.max(0,1-(Date.now()-(b.kickedAt||0))/4500),wave=this.reduced?.25:(Math.sin(time*(.0018+recent*.009))+1)/2;this.ballMesh.material.emissive.set('#d8e991');this.ballMesh.material.emissiveIntensity=.08+wave*(.18+recent*1.6);}
-   if(this.water&&!this.reduced){const a=this.water.geometry.attributes.position;for(let i=0;i<a.count;i++)a.setZ(i,Math.sin(a.getX(i)*.7+time*.0018)*Math.cos(a.getY(i)*.55+time*.001)*.032);a.needsUpdate=true;}
+   if(this.water&&!this.reduced&&time-(this.waterAt||0)>66){this.waterAt=time;const a=this.water.geometry.attributes.position;for(let i=0;i<a.count;i++)a.setZ(i,Math.sin(a.getX(i)*.7+time*.0018)*Math.cos(a.getY(i)*.55+time*.001)*.032);a.needsUpdate=true;}
    this.updateBoards();
   }
   super.loop(time);

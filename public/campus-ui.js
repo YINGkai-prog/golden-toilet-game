@@ -6,6 +6,7 @@ window.CampusUI=class{
   const presets=['👏','😂','🚽','☕','⚽','🏐','我回去蓋馬桶了','只改一點點','救命！AI 快交稿了'];for(const text of presets){const b=document.createElement('button');b.type='button';b.textContent=text;b.setAttribute('aria-label','公頻：'+text);b.onclick=()=>send('chat.send',{text});el.querySelector('.chat-presets').append(b);}
   el.querySelector('form').onsubmit=e=>{e.preventDefault();const text=this.input.value.trim();if(text){send('chat.send',{text});this.input.value='';}};
   el.querySelector('#chatToggle').onclick=e=>{const closed=el.classList.toggle('compact');e.currentTarget.setAttribute('aria-expanded',!closed);e.currentTarget.textContent=closed?'+':'−';};
+  this.effects=document.createElement('div');this.effects.className='campus-effects';this.effects.setAttribute('aria-live','polite');document.querySelector('.scene-area').append(this.effects);
   this.status=document.createElement('div');this.status.className='personal-status';document.querySelector('.scene-area').append(this.status);
   const goal=document.createElement('div');goal.className='main-goal';goal.innerHTML='<b>🚽 今晚的正事：一起蓋馬桶</b><span>1 處 × 2 處 × AI ／ 共創 → 評選 → 海報 → 上市</span>';document.querySelector('.scene-area').append(goal);
   this.sport=document.createElement('button');this.sport.className='sport-hit hidden';document.querySelector('.scene-area').append(this.sport);this.sport.onclick=()=>this.hit();
@@ -19,11 +20,12 @@ window.CampusUI=class{
   if(this.gameId!==s.gameId){this.gameId=s.gameId;this.messages=[];this.log.replaceChildren();}
   for(const m of s.campus?.chat||[])this.message(m);this.updateStatus();
  }
- message(m){if(this.messages.some(x=>x.id===m.id))return;this.messages.push(m);if(this.messages.length>60){this.messages.shift();this.log.firstChild?.remove();}
+ event(m){if(!m)return;const e=document.createElement('div');e.textContent=m.text;this.effects.append(e);while(this.effects.children.length>3)this.effects.firstChild.remove();setTimeout(()=>e.remove(),4500);}
+ message(m){if(!m||m.kind==='event')return;if(this.messages.some(x=>x.id===m.id))return;this.messages.push(m);if(this.messages.length>60){this.messages.shift();this.log.firstChild?.remove();}
   const nearBottom=this.log.scrollHeight-this.log.scrollTop-this.log.clientHeight<50,line=document.createElement('div');line.className='chat-message '+(m.kind==='event'?'event':'');const author=document.createElement('b'),body=document.createElement('span');author.textContent=m.name+' ';body.textContent=m.text;line.append(author,body);line.title=new Date(m.at).toLocaleTimeString();this.log.append(line);if(nearBottom)this.log.scrollTop=this.log.scrollHeight;
  }
  updateStatus(){const p=this.me();this.sport.classList.toggle('hidden',!['pool','courtyard'].includes(p?.motion?.room));this.sport.textContent=p?.motion?.room==='pool'?'🏐 托球 / 空白鍵':'⚽ 射向對方球門 / 空白鍵';
-  if(!p){this.status.hidden=true;return;}const ban=Math.max(0,Math.ceil(((p.indoorBanUntil||0)-this.now())/1000));this.status.hidden=false;const text=p.expelPending?'OMNI 正在趕過來！':ban?`OMNI 門禁 ${Math.floor(ban/60)}:${String(ban%60).padStart(2,'0')} · 可去泳池 / 公頻`:p.aiControlled?'◈ AI 代班中 · 點一下即可接回角色':'◉ 你身上的流光就是定位 · 30 秒無操作會 AI 代班';
+  if(!p){this.status.hidden=true;return;}const ban=Math.max(0,Math.ceil(((p.indoorBanUntil||0)-this.now())/1000));this.status.hidden=false;const lock=p.distraction?.until>this.now()?`${p.distraction.label} · ${Math.ceil((p.distraction.until-this.now())/1000)} 秒後可離開`:'';const text=lock?lock:p.expelPending?'OMNI 正在趕過來！':ban?`OMNI 門禁 ${Math.floor(ban/60)}:${String(ban%60).padStart(2,'0')} · 可去泳池 / 公頻`:p.aiControlled?'◈ AI 代班中 · 點一下即可接回角色':'◉ 你身上的流光就是定位 · 30 秒無操作會 AI 代班';
   const key=text+'|'+p.aiControlled;if(this.statusKey!==key){this.statusKey=key;this.status.replaceChildren(document.createTextNode(text));if(p.aiControlled){const b=document.createElement('button');b.textContent='我回來了';b.onclick=()=>this.send('input.active');this.status.append(b);}}
  }
 };})();

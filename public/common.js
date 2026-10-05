@@ -226,7 +226,7 @@
       this.hasRGB = false;
 
       const r = this.renderer = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: !!this.opts.preserve });
-      r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      r.setPixelRatio(Math.min(1.25, window.devicePixelRatio || 1));
       r.outputColorSpace = T.SRGBColorSpace;
       r.toneMapping = T.ACESFilmicToneMapping;
       r.toneMappingExposure = 1.05;
@@ -510,7 +510,7 @@
     }
 
     _frame(t) {
-      if (!this.el.isConnected) return;
+      if (!this.el.isConnected||document.hidden||this.el.getBoundingClientRect().bottom<0||this.el.getBoundingClientRect().top>innerHeight) return;
       if (this.needRebuild) this._rebuild();
       let animate = false;
       if (this.opts.autoRotate && (!this.lastInteract || t - this.lastInteract > 4000)) { this.yaw += 0.004; animate = true; }
@@ -556,7 +556,7 @@
       this.renderer.render(this.scene, this.camera);
       const url = this.renderer.domElement.toDataURL('image/png');
       this.ghost.visible = prevGhost;
-      this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      this.renderer.setPixelRatio(Math.min(1.25, window.devicePixelRatio || 1));
       this.renderer.setSize(prevW, prevH, false);
       this.camera.aspect = prevW / prevH; this.camera.updateProjectionMatrix();
       this.dirty = true;
