@@ -338,6 +338,7 @@ function publicState() {
     rolesPublished: game.rolesPublished,
     players: ps,
     connected: clients.size,
+    testPlayers: {active:ps.filter(p=>p.bot).length,pending:bots.filter(b=>!b.c.player).length,target:50},
     board: game.board, ai:{mode:game.ai.mode,progress:game.ai.progress,cycles:game.ai.cycles},
     brief: game.brief,
     banners: game.banners,
@@ -626,7 +627,7 @@ function onMessage(c, m) {
       if (game.phase === 'lobby' && (!game.lobby.open || now() < game.lobby.openAt)) { send(c, { t: 'err', msg: '還沒開放報到，等主持人倒數！', code: 'notopen' }); return; }
       if (!rateOk(c, 5)) return;
       const id = rid(5);
-      const player = { id, token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, rank: null, team: null, title: '', kicked: false };
+      const player = { id, token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, bot:!!c.bot, rank: null, team: null, title: '', kicked: false };
       game.players[id] = player;
       c.player = player;
       if (game.rolesPublished) assignIntern(player);
@@ -866,10 +867,14 @@ function onMessage(c, m) {
       broadcast({ t: 'builds', builds: game.builds });
       broadcastState(true); scheduleSave(); return;
     }
+    case 'h.fillPlayers':
     case 'h.bots': {
-      const n = Math.max(1, Math.min(60, m.n | 0));
+      const available=Math.max(0,50-activePlayers().length-bots.filter(b=>!b.c.player).length);
+      const n=m.t==='h.fillPlayers'?available:Math.min(available,Math.max(1,m.n|0));
       addBots(n);
-      send(c, { t: 'toast', msg: game.phase === 'lobby' && !(game.lobby.open && now() >= game.lobby.openAt) ? `已加入 ${n} 個測試機器人，按「開放報到」後他們會開始搶報到` : `已加入 ${n} 個測試機器人` });
+      if(n&&game.phase==='lobby'&&!game.lobby.open){game.lobby={open:true,openAt:now()+3000};fx({kind:'countdown',openAt:game.lobby.openAt});}
+      send(c, { t:'toast',msg:n?`補入 ${n} 位測試同仁，將自動投票、走動與參與遊戲`:'已達 50 人（含報到中），不用再補人'});
+      broadcastState(true);scheduleSave();
       return;
     }
     case 'h.removeBots': {
@@ -912,7 +917,13 @@ function removeBots() {
   for (const p of Object.values(game.players)) {
     if (!p.bot || p.kicked) continue;
     p.kicked = true;
-    for (const k of ['A', 'B']) for (const key in game.builds[k]) if (game.builds[k][key].by === p.id) delete game.builds[k][key];
+    delete game.review.votes[p.id];delete game.gallery.votes[p.id];delete game.poster.survey[p.id];delete game.poster.posters[p.id];
+    for(const voter of Object.keys(game.gallery.votes))if(game.gallery.votes[voter]===p.id)delete game.gallery.votes[voter];
+    if(game.gallery.bossPick===p.id)game.gallery.bossPick=null;
+    for (const k of ['A', 'B']) {
+      for (const key in game.builds[k]) if (game.builds[k][key].by === p.id) delete game.builds[k][key];
+      pendingOps[k]=pendingOps[k].filter(op=>op[5]!==p.id);
+    }
   }
   bots.length = 0;
   computeRoles();
@@ -951,7 +962,7 @@ function botBuild() {
   for (const team of ['A', 'B']) {
     const plan = botPlans[team] || (botPlans[team] = toiletPlan(team));
     const visited = lastVisit[team] && now() - lastVisit[team] < 20000;
-    const crew = bots.filter(b => b.c.player && !b.c.player.kicked && b.c.player.team === team && (!b.lazy || visited));
+    const crew = bots.filter(b => b.c.player && !b.c.player.kicked && b.c.player.team === team && b.c.player.motion?.room===team && (!b.lazy || visited));
     if (!crew.length) continue;
     const b0 = game.builds[team];
     const perTick = Math.max(1, Math.ceil(plan.length / Math.max(8, (dur * 0.6) / 0.5)));
@@ -995,6 +1006,8 @@ function botTick() {
   for (const b of bots) {
     const p = b.c.player;
     if (!p) {
+      // Human arrivals win any race against queued test players.
+      if(activePlayers().length>=50){b.cancelled=true;continue;}
       if (ph === 'lobby') {
         if (game.lobby.open && t >= game.lobby.openAt) {
           if (!b.joinAt) b.joinAt = Math.max(t, game.lobby.openAt) + rnd(400, 5000);
@@ -1004,14 +1017,40 @@ function botTick() {
       continue;
     }
     if (p.kicked) continue;
-    const key = ph + ':' + game.gameId;
+    const board=game.board;
+    if(!board.chair&&board.members.length===3&&board.members.includes(p.id)&&!board.votes[p.id]) {
+      const ballot='board:'+board.round;
+      if(!b.at[ballot])b.at[ballot]=t+1200+p.joinIdx*150;
+      if(t>=b.at[ballot]) {
+        const options=board.members.filter(id=>id!==p.id);
+        const candidate=options.find(id=>!game.players[id].bot)||options[0];
+        botSend(b,{t:'board.vote',candidate,round:board.round});
+      }
+    }
+    // Bots use the same movement, work-presence and arcade rules as real players.
+    const phaseKey=ph+':'+game.phaseStartedAt;
+    if(b.movementPhase!==phaseKey){b.movementPhase=phaseKey;b.nextMove=0;}
+    if(!p.motion?.destination&&t>=(b.nextMove||0)) {
+      const rest=['lounge','arcade','garden','courtyard','terrace','smoking','forest'];
+      const work=sim.home(p);
+      const visit=b.visits||0;b.visits=visit+1;
+      const destination=ph==='build'&&!b.lazy?work:ph==='review'||ph==='roles'&&p.rank==='board'?'board':p.rank==='boss'&&ph==='build'?'core':b.lazy?rest[(p.joinIdx+visit)%rest.length]:(p.joinIdx+visit)%3===0?rest[(p.joinIdx+visit)%rest.length]:work;
+      if(p.motion?.room!==destination)botSend(b,{t:'office.move',room:destination});
+      b.nextMove=t+rnd(22000,40000);
+    }
+    if(p.motion?.room==='arcade'&&['lobby','roles','build','poster'].includes(ph)) {
+      const r=p.leisure?.round;
+      if(!r||r.expires<t)botSend(b,{t:'arcade.start',game:'pulse'});
+      else if(t>=r.ready)botSend(b,{t:'arcade.hit',round:r.id,tile:Math.random()<.8?r.target:(r.target+1)%4});
+    }
+    const key = ph + ':' + game.gameId + ':' + game.phaseStartedAt;
     if (ph === 'brief' && p.rank === 'boss') botOnce(b, key, 4, 9, () => botSend(b, { t: 'brief', choice: Math.floor(Math.random() * G.BRIEFS.length) }));
     if (ph === 'review') {
       botOnce(b, key, 1, 10, () => {
-        const ca = Object.keys(game.builds.A).length, cb = Object.keys(game.builds.B).length;
-        botSend(b, { t: 'vote', team: Math.random() < (ca + 1) / (ca + cb + 2) ? 'A' : 'B' });
+        const ranked=['A','B','C'].sort((a,b)=>Object.keys(game.builds[b]).length-Object.keys(game.builds[a]).length);
+        botSend(b, { t: 'vote', team: Math.random()<.6?ranked[0]:pick(ranked) });
       });
-      if (p.rank === 'boss') botOnce(b, key + ':boss', 12, 18, () => botSend(b, { t: 'bossPick', team: Math.random() < 0.5 ? 'A' : 'B' }));
+      if (p.rank === 'boss') botOnce(b, key + ':boss', 12, 18, () => botSend(b, { t: 'bossPick', team: ['A','B','C'].sort((a,b)=>Object.keys(game.builds[b]).length-Object.keys(game.builds[a]).length)[0] }));
     }
     if (ph === 'poster') {
       const span = Math.max(20, game.settings.posterSec);
@@ -1027,8 +1066,11 @@ function botTick() {
       }
     }
   }
+  for(let i=bots.length-1;i>=0;i--)if(bots[i].cancelled)bots.splice(i,1);
   if (ph === 'build') botBuild(); else { botPlans.A = null; botPlans.B = null; }
 }
+// Persisted test players resume after a process restart instead of becoming inert.
+for(const p of activePlayers().filter(p=>p.bot))bots.push({name:p.name,lazy:p.joinIdx%5===0,c:{bot:true,open:true,player:p,host:false,bucket:20,lastFill:now(),cd:{}},joinAt:0,done:{},at:{}});
 setInterval(botTick, 500);
 
 // 機器人的海報：用上市馬桶的正面像素圖產生一張 PNG
@@ -1142,7 +1184,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'nexus-2026.10.05' };
+  return { ips, port: PORT, release: 'villa-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {

@@ -3,30 +3,28 @@
 module.exports = function createSimulation({getGame, G, broadcast, stateChanged, save, computeRoles, buildOpen, pending, plan}) {
  const fail=(c,msg)=>c.reply({t:'err',msg});
  const room=id=>G.ROOMS.find(r=>r.id===id);
+ const nav=require('./navigation.cjs')(G);
  const home=p=>p.team==='A'?'A':p.team==='B'?'B':p.team==='M'?'M':'board';
  function init(p){
-  if(!p.motion)p.motion={x:6+(p.joinIdx%5)*.7,z:12+Math.floor(p.joinIdx/5)*.2,room:'atrium',destination:null,path:[]};
+  if(!p.motion||p.motion.layout!==G.LAYOUT)p.motion={layout:G.LAYOUT,x:-4+(p.joinIdx%8)*1.1,z:33+Math.floor(p.joinIdx/8)*1.1,room:'atrium',destination:null,path:[]};
   if(!p.leisure)p.leisure={score:0,round:null,awaySeconds:0};
  }
  function travel(p,id,point){
-  init(p);const r=room(id),m=p.motion;
+  init(p);let r=room(id);const m=p.motion;
   if(!r||id==='core'&&p.rank!=='boss')return false;
-  const current=room(m.room)||room('atrium');
-  // Doorways connect through the open spine; no straight-line teleport through walls.
+  if(point&&Number.isFinite(point.x)&&Number.isFinite(point.z)&&r.base){r=nav.roomAt(point);id=r.id;if(id==='core'&&p.rank!=='boss')return false;}
   const occupied=new Set(Object.values(getGame().players).filter(q=>q!==p&&!q.kicked&&(q.motion?.room===id||q.motion?.destination===id)).map(q=>q.motion.slot));
   let slot=0;while(occupied.has(slot))slot++;m.slot=slot;
-  const cols=Math.max(2,Math.floor((r.w-2)/1.05));
-  let tx=r.x-(cols-1)*.525+(slot%cols)*1.05+(p.joinIdx%3-1)*.13,tz=r.z+r.d/2-2.1-Math.floor(slot/cols)*1.05+(p.joinIdx%4)*.12;
+  const cols=Math.max(2,Math.floor((r.w-4)/1.2));
+  let tx=r.x-(cols-1)*.6+(slot%cols)*1.2,tz=r.z+r.d/2-2-Math.floor(slot/cols)*1.2;
+  const desk=G.DESKS.filter(d=>d.room===id)[slot%Math.max(1,G.DESKS.filter(d=>d.room===id).length)];
+  if(desk){tx=desk.x;tz=desk.z+2.8;}
   if(point&&Number.isFinite(point.x)&&Number.isFinite(point.z)){
-   tx=Math.max(r.x-r.w/2+.8,Math.min(r.x+r.w/2-.8,point.x));
-   // Interaction lanes keep characters clear of desks and fixed furniture.
-   tz=Math.max(r.z+r.d/2-2.7,Math.min(r.z+r.d/2-.7,point.z));
+   tx=point.x;tz=point.z;
   }
-  const exit=current.route||[current.door];
-  const entry=r.route||[r.door];
-  const spine=m.path.findIndex(p=>p[1]===8);
-  const outgoing=m.room==='transit'&&spine>=0?m.path.slice(0,spine+1):[current.door,...exit];
-  m.path=[...outgoing,...entry.slice().reverse(),r.door,[tx,tz]];
+  const target=nav.nearest({x:tx,z:tz},r,p.rank==='boss');if(!target)return false;
+  const path=nav.path(m,target,p.rank==='boss'||nav.insideCore(m));if(!path)return false;
+  m.path=path;
   m.destination=id;m.room='transit';p.leisure.round=null;return true;
  }
  function boardReady(){
@@ -83,11 +81,11 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
   for(const p of Object.values(g.players)){
    if(p.kicked)continue;init(p);const m=p.motion;
    if(m.path.length){
-    moving=true;const [x,z]=m.path[0],d=Math.hypot(x-m.x,z-m.z),step=dt*5;
+    moving=true;const [x,z]=m.path[0],d=Math.hypot(x-m.x,z-m.z),step=dt*7;
     if(d<=step){m.x=x;m.z=z;m.path.shift();if(!m.path.length){m.room=m.destination;m.destination=null;stateChanged();}}
     else{m.x+=(x-m.x)/d*step;m.z+=(z-m.z)/d*step;}
    }
-   if(buildOpen()&&p.online&&['A','B'].includes(p.team)&&m.room!==home(p))p.leisure.awaySeconds+=dt;
+   if(buildOpen()&&(p.online||p.bot)&&['A','B'].includes(p.team)&&m.room!==home(p))p.leisure.awaySeconds+=dt;
   }
   if(moving&&now-motionAt>100){motionAt=now;broadcast({t:'motion',players:Object.values(g.players).filter(p=>!p.kicked).map(p=>({id:p.id,...p.motion,path:undefined}))});}
   if(now-saveAt>5000){saveAt=now;if(moving)save();}
