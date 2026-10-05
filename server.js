@@ -56,6 +56,9 @@ const cellKey = (x, y, z) => x + ',' + y + ',' + z;
 // ---------------------------------------------------------------- 遊戲狀態
 function freshGame() {
   return {
+    schemaVersion: 2,
+    board: {members:[],votes:{},chair:null,round:1,tied:false},
+    ai: {mode:'STANDBY',progress:0,cycles:0,plan:null,strategy:null},
     gameId: rid(4),
     phase: 'lobby',
     phaseEndsAt: null,
@@ -67,7 +70,7 @@ function freshGame() {
     players: {},            // id -> player
     joinCounter: 0,
     brief: { choice: null, auto: false },
-    builds: { A: {}, B: {} }, // key -> {c, by}
+    builds: { A: {}, B: {}, C: {} }, // key -> {c, by}
     stickers: [],           // 最近的貼紙
     banners: { A: null, B: null },
     review: { votes: {}, bossPick: null, changes: 0, winner: null },
@@ -81,7 +84,7 @@ function freshGame() {
 let game = freshGame();
 try {
   const saved = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-  if (saved && saved.gameId && saved.players) {
+  if (saved && saved.schemaVersion === 2 && saved.gameId && saved.players) {
     game = Object.assign(freshGame(), saved);
     for (const p of Object.values(game.players)) p.online = false;
     console.log('  已載入上次的遊戲進度（主持人可在控制台按「重置遊戲」重新開始）');
@@ -109,9 +112,10 @@ function activePlayers() {
 
 // 依報到順序決定職級與隊伍
 function computeRoles() {
-  const list = activePlayers().filter(p => p.rank !== 'intern' || !game.rolesPublished);
+  sim.boardReady();
+  const list = activePlayers().filter((p,i) => i<3 || p.rank !== 'intern' || !game.rolesPublished);
   const n = list.length;
-  const mgrCount = Math.max(0, Math.round((n - 4) * 0.15));
+  const mgrCount = Math.max(0, Math.round((n - 6) * 0.15));
   const counts = { A: 0, B: 0, M: 0 };
   const weight = { A: 2, B: 2, M: 1 };
   const titleIdx = { manager: { A: 0, B: 0, M: 0 }, staff: { A: 0, B: 0, M: 0 } };
@@ -124,12 +128,12 @@ function computeRoles() {
     return best;
   };
   list.forEach((p, i) => {
-    if (i === 0) { p.rank = 'boss'; p.team = null; p.title = '董事長'; return; }
-    if (i <= 3) {
-      const t = ['A', 'B', 'M'][i - 1];
+    if (i < 3) { p.rank = p.id === game.board.chair ? 'boss' : 'board'; p.team = null; p.title = p.rank === 'boss' ? '董事長' : '董事'; return; }
+    if (i <= 5) {
+      const t = ['A', 'B', 'M'][i - 3];
       p.rank = 'lead'; p.team = t; p.title = G.TITLES.lead[t]; counts[t]++; return;
     }
-    const isMgr = i < 4 + mgrCount;
+    const isMgr = i < 6 + mgrCount;
     const t = pickTeam();
     counts[t]++;
     const r = isMgr ? 'manager' : 'staff';
@@ -164,11 +168,10 @@ function canMakePoster(p) { return posterMakers().some(q => q.id === p.id); }
 function winnerTeam() {
   if (game.review.bossPick) return game.review.bossPick;
   const t = tallyReview();
-  if (t.B > t.A) return 'B';
-  return 'A';
+  return ['A','B','C'].sort((a,b)=>t[b]-t[a])[0];
 }
 function tallyReview() {
-  const t = { A: 0, B: 0 };
+  const t = { A: 0, B: 0, C: 0 };
   for (const v of Object.values(game.review.votes)) if (t[v] != null) t[v]++;
   return t;
 }
@@ -184,6 +187,7 @@ function timedPhase(ph) {
 
 function setPhase(ph) {
   if (!G.PHASE_IDS.includes(ph)) return;
+  if (!['lobby','roles'].includes(ph) && !game.board.chair) { broadcast({t:'toast',msg:'請先由三位董事互選董事長（不能投自己）'},c=>c.host); return; }
   const prev = game.phase;
   game.phase = ph;
   game.timeUp = false;
@@ -317,6 +321,7 @@ function publicState() {
     id: p.id, name: p.name, joinIdx: p.joinIdx, joinMs: p.joinMs, online: p.online || !!p.bot,
     rank: p.rank, team: p.team, title: p.title, bot: !!p.bot,
     owned: p.team === 'A' || p.team === 'B' ? ownedCount(p.team, p.id) : 0,
+    motion: p.motion ? {...p.motion,path:undefined} : null, leisure: {score:p.leisure?.score||0,awaySeconds:Math.floor(p.leisure?.awaySeconds||0)},
     placed: stat(p.id).placed
   }));
   const survey = Object.entries(game.poster.survey);
@@ -333,9 +338,10 @@ function publicState() {
     rolesPublished: game.rolesPublished,
     players: ps,
     connected: clients.size,
+    board: game.board, ai:{mode:game.ai.mode,progress:game.ai.progress,cycles:game.ai.cycles},
     brief: game.brief,
     banners: game.banners,
-    counts: { A: Object.keys(game.builds.A).length, B: Object.keys(game.builds.B).length },
+    counts: { A: Object.keys(game.builds.A).length, B: Object.keys(game.builds.B).length, C:Object.keys(game.builds.C).length },
     review: { tally: tallyReview(), bossPick: game.review.bossPick, changes: game.review.changes, winner: game.review.winner },
     poster: {
       makers: posterMakers().map(p => p.id),
@@ -354,6 +360,7 @@ function youState(p) {
   if (!p) return null;
   return {
     id: p.id, token: p.token, name: p.name,
+    arcade: p.motion?.room==='arcade'&&p.leisure?.round?.expires>now()?p.leisure.round:null,
     reviewVote: game.review.votes[p.id] || null,
     galleryVote: game.gallery.votes[p.id] || null,
     survey: game.poster.survey[p.id] || null,
@@ -540,9 +547,9 @@ function broadcastState(force) {
 setInterval(() => { if (stateDirty) broadcastState(true); }, 200);
 
 // 積木異動批次廣播
-let pendingOps = { A: [], B: [] };
+let pendingOps = { A: [], B: [], C: [] };
 setInterval(() => {
-  for (const team of ['A', 'B']) {
+  for (const team of ['A', 'B', 'C']) {
     if (!pendingOps[team].length) continue;
     broadcast({ t: 'ops', team, ops: pendingOps[team] });
     pendingOps[team] = [];
@@ -587,10 +594,14 @@ const cooldowns = {};
 
 function buildOpen() { return game.phase === 'build' && !game.timeUp && game.pausedRemaining == null; }
 
+const sim = require('./simulation.cjs')({getGame:()=>game,G,broadcast,stateChanged:()=>broadcastState(false),save:scheduleSave,computeRoles,buildOpen,pending:()=>pendingOps,plan:toiletPlan});
+setInterval(()=>sim.tick(),50);
+
 // ---------------------------------------------------------------- 訊息處理
 function onMessage(c, m) {
   if (!m || typeof m.t !== 'string') return;
   const p = c.player;
+  if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect'].includes(m.t)) { if(rateOk(c)) sim.handle({player:p,reply:msg=>send(c,msg)},m); return; }
 
   switch (m.t) {
     case 'hello': {
@@ -618,7 +629,9 @@ function onMessage(c, m) {
       const player = { id, token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, rank: null, team: null, title: '', kicked: false };
       game.players[id] = player;
       c.player = player;
-      if (game.rolesPublished) assignIntern(player); else computeRoles();
+      if (game.rolesPublished) assignIntern(player);
+      computeRoles();
+      sim.init(player);
       stat(id);
       send(c, { t: 'you', you: youState(player) });
       fx({ kind: 'join', id, name, joinIdx: player.joinIdx });
@@ -629,6 +642,7 @@ function onMessage(c, m) {
     case 'place': {
       if (!p || !buildOpen()) return;
       if (!(p.team === 'A' || p.team === 'B')) return;
+      if(p.motion?.room!==p.team) {send(c,{t:'err',msg:'請先回到自己的研發區才能施工'});return;}
       if (!rateOk(c)) return;
       const x = m.x | 0, y = m.y | 0, z = m.z | 0, col = m.c | 0;
       if (x < 0 || y < 0 || z < 0 || x >= G.GRID.x || y >= G.GRID.y || z >= G.GRID.z) return;
@@ -651,6 +665,7 @@ function onMessage(c, m) {
     case 'remove': {
       if (!p || !buildOpen()) return;
       if (!(p.team === 'A' || p.team === 'B')) return;
+      if(p.motion?.room!==p.team) {send(c,{t:'err',msg:'請先回到自己的研發區才能施工'});return;}
       if (!rateOk(c)) return;
       const x = m.x | 0, y = m.y | 0, z = m.z | 0;
       const b = game.builds[p.team];
@@ -721,7 +736,7 @@ function onMessage(c, m) {
     }
     case 'vote': {
       if (!p || game.phase !== 'review') return;
-      if (m.team !== 'A' && m.team !== 'B') return;
+      if (!['A','B','C'].includes(m.team)) return;
       game.review.votes[p.id] = m.team;
       send(c, { t: 'you', you: youState(p) });
       actHost(p.id, 'vote');
@@ -730,7 +745,7 @@ function onMessage(c, m) {
     }
     case 'bossPick': {
       if (!p || p.rank !== 'boss' || game.phase !== 'review') return;
-      if (m.team !== 'A' && m.team !== 'B') return;
+      if (!['A','B','C'].includes(m.team)) return;
       if (game.review.bossPick && game.review.bossPick !== m.team) game.review.changes++;
       game.review.bossPick = m.team;
       game.review.winner = m.team;
@@ -835,7 +850,7 @@ function onMessage(c, m) {
       q.kicked = true;
       for (const k of ['A', 'B']) for (const key in game.builds[k]) if (game.builds[k][key].by === q.id) { delete game.builds[k][key]; }
       for (const o of clients) if (o.player === q) { send(o, { t: 'kicked' }); o.player = null; }
-      if (!game.rolesPublished) computeRoles();
+      computeRoles();
       broadcast({ t: 'builds', builds: game.builds });
       broadcastState(true); scheduleSave(); return;
     }
@@ -844,13 +859,7 @@ function onMessage(c, m) {
       const n = clampStr(m.name, G.LIMITS.name); if (n) q.name = n;
       broadcastState(true); scheduleSave(); return;
     }
-    case 'h.makeBoss': {
-      const q = game.players[m.id]; if (!q || q.kicked) return;
-      const boss = activePlayers().find(x => x.rank === 'boss');
-      if (boss && boss !== q) { const tmp = { rank: boss.rank, team: boss.team, title: boss.title }; boss.rank = q.rank; boss.team = q.team; boss.title = q.title; q.rank = tmp.rank; q.team = tmp.team; q.title = tmp.title; }
-      else if (!boss) { q.rank = 'boss'; q.team = null; q.title = '董事長'; }
-      broadcastState(true); scheduleSave(); return;
-    }
+    case 'h.makeBoss': { send(c,{t:'err',msg:'董事長必須由三位董事互選，不能指定'}); return; }
     case 'h.clearBuild': {
       const team = m.team === 'B' ? 'B' : 'A';
       game.builds[team] = {};
@@ -871,6 +880,7 @@ function onMessage(c, m) {
     case 'h.reset': {
       bots.length = 0;
       game = freshGame();
+      pendingOps={A:[],B:[],C:[]};
       for (const o of clients) o.player = null;
       broadcast({ t: 'reset' });
       broadcast({ t: 'builds', builds: game.builds });
@@ -905,7 +915,7 @@ function removeBots() {
     for (const k of ['A', 'B']) for (const key in game.builds[k]) if (game.builds[k][key].by === p.id) delete game.builds[k][key];
   }
   bots.length = 0;
-  if (!game.rolesPublished) computeRoles();
+  computeRoles();
 }
 function botSend(b, m) {
   try { onMessage(b.c, m); } catch (e) { /* ignore */ }
@@ -1132,7 +1142,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-2026.10.05' };
+  return { ips, port: PORT, release: 'nexus-2026.10.05' };
 }
 
 server.on('error', e => {
