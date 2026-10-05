@@ -1217,7 +1217,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'arrival-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'lumen-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {

@@ -50,6 +50,6 @@ window.Office=class extends Base{
  loop(time){if(this.posterSky){if(this.modelsDirty&&time-(this.modelAt||0)>180){this.modelAt=time;this.modelsDirty=false;this.updateModels();}if((this.postersDirty||this.pageDirty)&&time-(this.posterAt||0)>1000){this.posterAt=time;this.postersDirty=false;this.drawPosters();}
   if(this.posterSky.visible){const lift=this.reduced?1:Math.min(1,(time-this.posterLiftAt)/2400);this.posterCloth.scale.y=Math.max(.025,lift);this.posterCloth.position.y=46.075+17.925*lift;for(const d of this.posterDrones){d.drone.position.y=50.15+35.85*lift;for(const r of d.rotors)r.rotation.y=this.reduced?0:time*.055;const pos=d.cable.geometry.attributes.position;pos.setY(0,d.drone.position.y-.3);pos.setY(1,46.075+35.85*lift);pos.needsUpdate=true;}}
   if(this.deskArrow.visible)this.deskArrow.position.y=3.25+(this.reduced?0:Math.sin(time*.004)*.15);
-  if(this.perf&&time>=this.perf.start){this.perf.frames++;const elapsed=time-this.perf.start;if(elapsed>4000){const fps=1000*this.perf.frames/elapsed,ratio=this.renderer.getPixelRatio();if(fps<42&&ratio>.65)this.renderer.setPixelRatio(Math.max(.65,ratio*.85));this.perf={frames:0,start:time};}}
+  // Render quality is an explicit player choice; background tabs never reduce it.
  }super.loop(time);}
 };})();
