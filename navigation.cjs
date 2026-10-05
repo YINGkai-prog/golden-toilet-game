@@ -7,13 +7,15 @@ module.exports = function navigation(G) {
   const inside=(p,r,pad=0)=>Math.abs(p.x-r.x)<r.w/2+pad&&Math.abs(p.z-r.z)<r.d/2+pad;
   const office={x:0,z:6,w:83,d:79};
   const solids=[...G.WALLS,...G.SOLIDS];
+  const buckets=new Map();for(const r of solids)for(let z=Math.floor((r.z-r.d/2-1)/5);z<=Math.floor((r.z+r.d/2+1)/5);z++)for(let x=Math.floor((r.x-r.w/2-1)/5);x<=Math.floor((r.x+r.w/2+1)/5);x++){const k=x+','+z;if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(r);}
+  const nearby=p=>buckets.get(Math.floor(p.x/5)+','+Math.floor(p.z/5))||[];
   const index=(x,z)=>(z-minZ)*W+x-minX;
   const point=i=>({x:i%W+minX,z:Math.floor(i/W)+minZ});
   const blocked=new Uint8Array(W*H);
   for(let z=minZ;z<=maxZ;z++)for(let x=minX;x<=maxX;x++)blocked[index(x,z)]=solids.some(r=>inside({x,z},r,.36));
   function walkable(p,allowCore=false,outdoorOnly=false) {
     return p.x>=minX&&p.x<=maxX&&p.z>=minZ&&p.z<=maxZ &&
-      (!outdoorOnly||!inside(p,office))&&(allowCore||!inside(p,core,.15))&&!solids.some(r=>inside(p,r,.35));
+      (!outdoorOnly||!inside(p,office))&&(allowCore||!inside(p,core,.15))&&!nearby(p).some(r=>inside(p,r,.35));
   }
   const roomAt=p=>G.ROOMS.find(r=>!r.base&&inside(p,r))||G.ROOMS.find(r=>r.base);
   function nearest(p,room,allowCore,outdoorOnly=false) {
@@ -28,7 +30,8 @@ module.exports = function navigation(G) {
   }
   function clear(a,b,allowCore,outdoorOnly=false) {
     // Exact swept segment / expanded rectangle intersection, including corners.
-    for(const r of [...(allowCore?solids:[...solids,core]),...(outdoorOnly?[office]:[])]) {
+    const candidates=Math.hypot(a.x-b.x,a.z-b.z)<2?[...new Set([...nearby(a),...nearby(b)])]:solids;
+    for(const r of [...(allowCore?candidates:[...candidates,core]),...(outdoorOnly?[office]:[])]) {
       let enter=0,leave=1;
       for(const [axis,size] of [['x','w'],['z','d']]) {
         const lo=r[axis]-r[size]/2-.36,hi=r[axis]+r[size]/2+.36,d=b[axis]-a[axis];
@@ -39,22 +42,24 @@ module.exports = function navigation(G) {
     }
     return true;
   }
-  function path(from,to,allowCore=false,outdoorOnly=false) {
+  function path(from,to,allowCore=false,outdoorOnly=false,actors=[]) {
     const start=nearest(from,null,allowCore,outdoorOnly),end=nearest(to,null,allowCore,outdoorOnly);if(!start||!end)return null;
+    const occupied=new Set();for(const a of actors)for(let z=Math.max(minZ,Math.floor(a.z-a.r));z<=Math.min(maxZ,Math.ceil(a.z+a.r));z++)for(let x=Math.max(minX,Math.floor(a.x-a.r));x<=Math.min(maxX,Math.ceil(a.x+a.r));x++)if(Math.hypot(x-a.x,z-a.z)<a.r)occupied.add(index(x,z));
+    const clearActors=(a,b)=>actors.every(p=>{const dx=b.x-a.x,dz=b.z-a.z,l=dx*dx+dz*dz,t=l?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.z-a.z)*dz)/l)):0;return Math.hypot(a.x+t*dx-p.x,a.z+t*dz-p.z)>=p.r;});
     const si=index(start.x,start.z),ei=index(end.x,end.z),prev=new Int32Array(W*H).fill(-1),queue=new Int32Array(W*H);
     let head=0,tail=1;queue[0]=si;prev[si]=si;
     while(head<tail&&prev[ei]===-1) {
       const cur=queue[head++],x=cur%W,z=Math.floor(cur/W);
       for(const next of [x>0?cur-1:-1,x<W-1?cur+1:-1,z>0?cur-W:-1,z<H-1?cur+W:-1]) {
-        if(next<0||blocked[next]||outdoorOnly&&inside(point(next),office)||prev[next]!==-1||!allowCore&&inside(point(next),core,.15))continue;
+        if(next<0||blocked[next]||occupied.has(next)||outdoorOnly&&inside(point(next),office)||prev[next]!==-1||!allowCore&&inside(point(next),core,.15))continue;
         prev[next]=cur;queue[tail++]=next;
       }
     }
     if(prev[ei]===-1)return null;
-    const raw=[];let i=ei;while(i!==si){raw.push(point(i));i=prev[i];}raw.push(start);raw.reverse();
+    const raw=[];let i=ei;while(i!==si){raw.push(point(i));i=prev[i];}raw.push(start);raw.reverse();if(walkable(to,allowCore,outdoorOnly)&&clear(end,to,allowCore,outdoorOnly)&&clearActors(end,to))raw.push(to);
     const smooth=[];let anchor=from,k=0;
-    while(k<raw.length){let last=k;while(last+1<raw.length&&clear(anchor,raw[last+1],allowCore,outdoorOnly))last++;smooth.push([raw[last].x,raw[last].z]);anchor=raw[last];k=last+1;}
+    while(k<raw.length){let last=k;while(last+1<raw.length&&clear(anchor,raw[last+1],allowCore,outdoorOnly)&&clearActors(anchor,raw[last+1]))last++;smooth.push([raw[last].x,raw[last].z]);anchor=raw[last];k=last+1;}
     return smooth;
   }
-  return {path,nearest,walkable,roomAt,insideOffice:p=>inside(p,office),insideCore:p=>inside(p,core)};
+  return {path,nearest,walkable,clear,roomAt,insideOffice:p=>inside(p,office),insideCore:p=>inside(p,core)};
 };

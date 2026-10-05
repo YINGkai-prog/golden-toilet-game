@@ -5,8 +5,8 @@ module.exports=function({getGame,G,broadcast,changed,save,clock=Date.now}){
  const side=p=>['A','B'].includes(p.team)?p.team:(p.joinIdx%2?'A':'B');
  function state(){const g=getGame();return g.campus||(g.campus={chat:[],serial:0,omni:{x:0,z:20,mode:'welcome',node:0,path:[],flipAt:0,target:null},volley:{x:48,z:28,y:2.5,vx:0,vz:0,vy:0,score:[0,0],resetAt:0,last:null,serve:'A',rally:0}});}
  function summary(includeHistory=true){const s=state();return{...s,chat:includeHistory?s.chat:undefined,omni:{...s.omni,path:undefined},serverNow:clock()};}
- function message(name,text,kind='chat',by=null,rank=null){const s=state();const m={id:++s.serial,at:clock(),name,text,kind,by,rank};s.chat.push(m);s.chat=s.chat.slice(-60);broadcast({t:'chat',message:m});save();return m;}
- function activity(p){if(!p||p.bot||p.kicked)return;p.lastActionAt=clock();if(p.aiControlled){p.aiControlled=false;p.motion.path=[];p.motion.destination=null;p.motion.room=nav.roomAt(p.motion).id;changed();broadcast({t:'assist',id:p.id,active:false});}}
+ function message(name,text,kind='chat',by=null,rank=null){const s=state();const m={id:++s.serial,at:clock(),name,text,kind,by,rank};if(kind==='event'){broadcast({t:'campus.event',message:m});return m;}s.chat.push(m);s.chat=s.chat.slice(-60);broadcast({t:'chat',message:m});save();return m;}
+ function activity(p){if(!p||p.bot||p.kicked)return;p.lastActionAt=clock();if(p.aiControlled){p.aiControlled=false;if(p.arrival?.stage==='done'){p.motion.path=[];p.motion.destination=null;p.motion.room=nav.roomAt(p.motion).id;}changed();broadcast({t:'assist',id:p.id,active:false});}}
  function handle(c,m){if(!['chat.send','input.active','sports.hit'].includes(m.t))return false;
   const p=c.player;if(m.t==='input.active'){activity(p);return true;}
   if(m.t==='chat.send'){
@@ -64,7 +64,7 @@ module.exports=function({getGame,G,broadcast,changed,save,clock=Date.now}){
    const p=getGame().players[o.target];if(!p||p.kicked){o.mode='patrol';o.target=null;o.path=[];return;}
    if(now>=o.catchAt||Math.hypot(o.x-p.motion.x,o.z-p.motion.z)<1.2){
     p.expelPending=false;p.indoorBanUntil=now+120000;p.dancing=false;p.mini=null;
-    Object.assign(p.motion,{x:0,z:54,room:'terrace',destination:null,path:[]});o.mode='cooldown';o.x=0;o.z=46;o.path=[];o.until=now+4000;o.target=null;
+    let exit={x:0,z:54};for(let n=0;n<50;n++){const v={x:(n%10-4.5)*2,z:52+Math.floor(n/10)*2};if(ps.every(q=>q===p||!q.motion||Math.hypot(q.motion.x-v.x,q.motion.z-v.z)>1.5)){exit=v;break;}}Object.assign(p.motion,{...exit,room:'terrace',destination:null,path:[]});p.distraction=null;o.mode='cooldown';o.x=0;o.z=46;o.path=[];o.until=now+4000;o.target=null;
     message('OMNI',`${p.name} 已被請出辦公室，120 秒後解除門禁。戶外泳池與公頻照常開放。`,'event');changed();save();return;
    }
   }else if(o.mode==='cooldown'){if(now<o.until)return;o.mode='patrol';}

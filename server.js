@@ -24,6 +24,7 @@ function loadShared() {
   return m.exports;
 }
 const G = loadShared();
+const market=require('./market.cjs');
 
 const CLOUD = !!(process.env.RENDER || process.env.CLOUD || process.env.HOST_KEY);
 const argPort = /^\d+$/.test(process.argv[2] || '') ? process.argv[2] : null;
@@ -73,7 +74,7 @@ function freshGame() {
     builds: { A: {}, B: {}, C: {} }, // key -> {c, by}
     stickers: [],           // 最近的貼紙
     banners: { A: null, B: null },
-    review: { votes: {}, bossPick: null, changes: 0, winner: null },
+    review: { votes: {}, weights: {}, bossPick: null, changes: 0, winner: null },
     poster: { posters: {}, survey: {}, officialPrice: null },
     gallery: { votes: {}, bossPick: null },
     launch: null,
@@ -172,7 +173,7 @@ function winnerTeam() {
 }
 function tallyReview() {
   const t = { A: 0, B: 0, C: 0 };
-  for (const v of Object.values(game.review.votes)) if (t[v] != null) t[v]++;
+  for (const [id,v] of Object.entries(game.review.votes)) if (t[v] != null) t[v]+=game.review.weights?.[id]===2?2:1;
   return t;
 }
 function tallyGallery() {
@@ -231,7 +232,8 @@ function finalizeLaunch() {
     official,
     popular,
     avgPrice: avg,
-    price: game.poster.officialPrice != null ? game.poster.officialPrice : avg,
+    price: market(game).price,
+    finance: market(game),
     awards: {
       worker: best(p => stat(p.id).placed, p => p.rank === 'staff' || p.rank === 'intern'),
       micromanager: best(p => stat(p.id).stickers, p => p.rank === 'manager' || p.rank === 'lead'),
@@ -263,6 +265,7 @@ function collectOutputs() {
     董事長: (ps.find(p => p.rank === 'boss') || {}).name,
     官方售價: game.launch && game.launch.price,
     市調平均願付: game.launch && game.launch.avgPrice,
+    上市損益: game.launch && game.launch.finance,
     組織: ps.map(p => ({ 順序: p.joinIdx, 姓名: p.name, 職稱: p.title, 隊伍: p.team && G.TEAMS[p.team].name, 放置積木: stat(p.id).placed })),
     市調金句: Object.entries(game.poster.survey).map(([id, s]) => ({ 姓名: nameOf(id), 願付: s.price, 一句話: s.quote }))
   };
@@ -321,6 +324,7 @@ function publicState(includeHistory=false) {
     id: p.id, name: p.name, joinIdx: p.joinIdx, joinMs: p.joinMs, online: p.online || !!p.bot || !!p.aiControlled,
     rank: p.rank, team: p.team, title: p.title, bot: !!p.bot, appearance:p.appearance, dancing:!!p.dancing, aiControlled:!!p.aiControlled, indoorBanUntil:p.indoorBanUntil||0, expelPending:!!p.expelPending, sportsTeam:campus.side(p),
     owned: p.team === 'A' || p.team === 'B' ? ownedCount(p.team, p.id) : 0,
+    status:sim.status(p), distraction:p.distraction||null, workstation:sim.station(p), atWorkstation:sim.atStation(p), arrival:p.arrival?{mode:p.arrival.mode,stage:p.arrival.stage}:null,
     motion: p.motion ? {...p.motion,path:undefined} : null, leisure: {score:p.leisure?.score||0,awaySeconds:Math.floor(p.leisure?.awaySeconds||0)},
     placed: stat(p.id).placed
   }));
@@ -329,6 +333,7 @@ function publicState(includeHistory=false) {
   return {
     gameId: game.gameId,
     phase: game.phase,
+    phaseStartedAt:game.phaseStartedAt,
     phaseEndsAt: game.phaseEndsAt,
     pausedRemaining: game.pausedRemaining,
     timeUp: game.timeUp,
@@ -350,7 +355,7 @@ function publicState(includeHistory=false) {
       surveyCount: survey.length,
       avgPrice: prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null,
       quotes: survey.filter(([, s]) => s.quote).map(([id, s]) => ({ by: id, quote: s.quote, price: s.price, at: s.at })).sort((a, b) => b.at - a.at).slice(0, 40),
-      officialPrice: game.poster.officialPrice
+      officialPrice: game.poster.officialPrice, assessment:market(game)
     },
     gallery: { tally: tallyGallery(), bossPick: game.gallery.bossPick },
     launch: game.launch
@@ -362,7 +367,7 @@ function youState(p) {
   return {
     id: p.id, token: p.token, name: p.name, mini:p.mini||null,
     arcade: p.motion?.room==='arcade'&&p.leisure?.round?.expires>now()?p.leisure.round:null,
-    reviewVote: game.review.votes[p.id] || null,
+    reviewVote: game.review.votes[p.id] || null, reviewWeight:game.review.weights?.[p.id]||1, inspection:p.inspection||null,
     galleryVote: game.gallery.votes[p.id] || null,
     survey: game.poster.survey[p.id] || null,
     poster: game.poster.posters[p.id] ? { name: game.poster.posters[p.id].name, slogan: game.poster.posters[p.id].slogan, submitted: !!game.poster.posters[p.id].submitted, v: game.poster.posters[p.id].v } : null
@@ -545,7 +550,7 @@ function broadcastState(force) {
   stateDirty = false;
   broadcast({ t: 'state', s: publicState() });
 }
-setInterval(() => { if (stateDirty) broadcastState(true); }, 200);
+setInterval(() => { if (stateDirty) broadcastState(true); }, 400);
 
 // 積木異動批次廣播
 let pendingOps = { A: [], B: [], C: [] };
@@ -605,9 +610,9 @@ setInterval(()=>{sim.tick();recreation.tick();campus.tick();},50);
 function onMessage(c, m) {
   if (!m || typeof m.t !== 'string') return;
   const p = c.player;
-  if(p&&!c.bot&&['input.active','chat.send','sports.hit','office.move','board.vote','place','remove','sticker','banner','visit','react','mini.start','mini.input','coffee.join','coffee.step','dance','arcade.start','arcade.hit','core.inspect','brief','vote','bossPick','poster','price','survey','gvote','gpick'].includes(m.t))campus.activity(p);
+  if(p&&!c.bot&&['input.active','chat.send','sports.hit','office.move','work.goto','exhibit.inspect','board.vote','place','remove','sticker','banner','visit','react','mini.start','mini.input','coffee.join','coffee.step','dance','arcade.start','arcade.hit','core.inspect','brief','vote','bossPick','poster','price','survey','gvote','gpick'].includes(m.t))campus.activity(p);
   if(['chat.send','input.active','sports.hit'].includes(m.t)){if(rateOk(c))campus.handle({player:p,host:c.host,reply:msg=>send(c,msg),get chatAt(){return c.chatAt;},set chatAt(v){c.chatAt=v;}},m);return;}
-  if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect'].includes(m.t)) { if(rateOk(c)) sim.handle({player:p,reply:msg=>send(c,msg)},m); return; }
+  if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect','work.goto','exhibit.inspect'].includes(m.t)) { if(rateOk(c)) sim.handle({player:p,reply:msg=>send(c,msg)},m); return; }
 
   if (['mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t)) {if(rateOk(c))recreation.handle({player:p,reply:msg=>send(c,msg)},m);return;}
   switch (m.t) {
@@ -652,7 +657,7 @@ function onMessage(c, m) {
     case 'place': {
       if (!p || !buildOpen()) return;
       if (!(p.team === 'A' || p.team === 'B')) return;
-      if(p.motion?.room!==p.team) {send(c,{t:'err',msg:'請先回到自己的研發區才能施工'});return;}
+      if(!sim.atStation(p)) {send(c,{t:'err',msg:'請先回到自己的研發區，抵達指定電腦機台才能施工'});return;}
       if (!rateOk(c)) return;
       const x = m.x | 0, y = m.y | 0, z = m.z | 0, col = m.c | 0;
       if (x < 0 || y < 0 || z < 0 || x >= G.GRID.x || y >= G.GRID.y || z >= G.GRID.z) return;
@@ -675,7 +680,7 @@ function onMessage(c, m) {
     case 'remove': {
       if (!p || !buildOpen()) return;
       if (!(p.team === 'A' || p.team === 'B')) return;
-      if(p.motion?.room!==p.team) {send(c,{t:'err',msg:'請先回到自己的研發區才能施工'});return;}
+      if(!sim.atStation(p)) {send(c,{t:'err',msg:'請先回到自己的研發區，抵達指定電腦機台才能施工'});return;}
       if (!rateOk(c)) return;
       const x = m.x | 0, y = m.y | 0, z = m.z | 0;
       const b = game.builds[p.team];
@@ -748,6 +753,7 @@ function onMessage(c, m) {
       if (!p || game.phase !== 'review') return;
       if (!['A','B','C'].includes(m.team)) return;
       game.review.votes[p.id] = m.team;
+      (game.review.weights||(game.review.weights={}))[p.id]=sim.weight(p);
       send(c, { t: 'you', you: youState(p) });
       actHost(p.id, 'vote');
       stateDirty = true; scheduleSave();
@@ -926,7 +932,7 @@ function removeBots() {
   for (const p of Object.values(game.players)) {
     if (!p.bot || p.kicked) continue;
     p.kicked = true;
-    delete game.review.votes[p.id];delete game.gallery.votes[p.id];delete game.poster.survey[p.id];delete game.poster.posters[p.id];
+    delete game.review.votes[p.id];if(game.review.weights)delete game.review.weights[p.id];delete game.gallery.votes[p.id];delete game.poster.survey[p.id];delete game.poster.posters[p.id];
     for(const voter of Object.keys(game.gallery.votes))if(game.gallery.votes[voter]===p.id)delete game.gallery.votes[voter];
     if(game.gallery.bossPick===p.id)game.gallery.bossPick=null;
     for (const k of ['A', 'B']) {
@@ -971,7 +977,7 @@ function botBuild() {
   for (const team of ['A', 'B']) {
     const plan = botPlans[team] || (botPlans[team] = toiletPlan(team));
     const visited = lastVisit[team] && now() - lastVisit[team] < 20000;
-    const crew = controllers().filter(b => b.c.player && !b.c.player.kicked && b.c.player.team === team && b.c.player.motion?.room===team && (!b.lazy || visited));
+    const crew = controllers().filter(b => b.c.player && !b.c.player.kicked && b.c.player.team === team && sim.atStation(b.c.player) && (!b.lazy || visited));
     if (!crew.length) continue;
     const b0 = game.builds[team];
     const perTick = Math.max(1, Math.ceil(plan.length / Math.max(8, (dur * 0.6) / 0.5)));
@@ -1048,7 +1054,7 @@ function botTick() {
       const work=sim.home(p);
       const visit=b.visits||0;b.visits=visit+1;
       const destination=p.indoorBanUntil>t?'pool':ph==='build'&&!b.lazy?work:ph==='review'||ph==='roles'&&p.rank==='board'?'board':p.rank==='boss'&&ph==='build'?'core':b.lazy?rest[(p.joinIdx+visit)%rest.length]:(p.joinIdx+visit)%3===0?rest[(p.joinIdx+visit)%rest.length]:work;
-      if(p.motion?.room!==destination)botSend(b,{t:'office.move',room:destination});
+      if(p.motion?.room!==destination||ph==='build'&&destination===work&&['A','B'].includes(p.team)&&!sim.atStation(p))botSend(b,{t:'office.move',room:destination});
       b.nextMove=t+rnd(22000,40000);
     }
     if(p.motion?.room==='lounge'){
@@ -1071,6 +1077,7 @@ function botTick() {
     }
     const key = ph + ':' + game.gameId + ':' + game.phaseStartedAt;
     if (ph === 'brief' && p.rank === 'boss') botOnce(b, key, 4, 9, () => botSend(b, { t: 'brief', choice: Math.floor(Math.random() * G.BRIEFS.length) }));
+    if(ph==='review'&&sim.inBoard(p)&&p.inspection?.phaseAt!==game.phaseStartedAt)botSend(b,{t:'exhibit.inspect'});
     if (ph === 'review') {
       botOnce(b, key, 1, 10, () => {
         const ranked=['A','B','C'].sort((a,b)=>Object.keys(game.builds[b]).length-Object.keys(game.builds[a]).length);
@@ -1081,7 +1088,7 @@ function botTick() {
     if (ph === 'poster') {
       const span = Math.max(20, game.settings.posterSec);
       if (canMakePoster(p)) botOnce(b, key, span * 0.15, span * 0.6, () => { const [nm, sl] = pick(BOT_POSTER); botSend(b, { t: 'poster', img: botPosterImage(p.id), name: nm, slogan: sl, final: true }); });
-      else if (p.rank === 'boss') botOnce(b, key, span * 0.3, span * 0.5, () => { const avg = publicState().poster.avgPrice || 30000; botSend(b, { t: 'price', price: Math.max(990, Math.round(avg / 1000) * 1000 - 10) }); });
+      else if (p.rank === 'boss') botOnce(b, key, span * 0.3, span * 0.5, () => { if(game.poster.officialPrice==null)botSend(b, { t: 'price', price: market(game).recommended }); });
       else botOnce(b, key, 2, Math.min(40, span * 0.5), () => botSend(b, { t: 'survey', price: Math.round(rnd(3, 60)) * 1000, quote: Math.random() < 0.6 ? pick(BOT_QUOTES) : '' }));
     }
     if (ph === 'gallery') {
@@ -1210,7 +1217,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'summit-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'arrival-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {

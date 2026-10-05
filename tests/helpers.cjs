@@ -12,7 +12,7 @@ async function start() {
   fs.copyFileSync(path.join(ROOT, 'server.js'), path.join(tmp, 'server.js'));
   fs.copyFileSync(path.join(ROOT,'simulation.cjs'),path.join(tmp,'simulation.cjs'));
   fs.copyFileSync(path.join(ROOT,'navigation.cjs'),path.join(tmp,'navigation.cjs'));
-  for(const file of ['appearance.cjs','recreation.cjs','campus.cjs'])fs.copyFileSync(path.join(ROOT,file),path.join(tmp,file));
+  for(const file of ['appearance.cjs','recreation.cjs','campus.cjs','workflow.cjs','traffic.cjs','market.cjs'])fs.copyFileSync(path.join(ROOT,file),path.join(tmp,file));
   fs.cpSync(path.join(ROOT, 'public'), path.join(tmp, 'public'), { recursive: true });
   const port = await new Promise(resolve => { const s = net.createServer(); s.listen(0,'127.0.0.1',()=>{ const p=s.address().port;s.close(()=>resolve(p)); }); });
   // A file log also works in Windows sandboxes that cannot create Node pipes.
@@ -51,7 +51,7 @@ async function connect(base,hello={}) {
   const wait=match=>{
     if(typeof match==='string'){const type=match;match=m=>m.t===type;}
     const i=queue.findIndex(match);if(i>=0)return Promise.resolve(queue.splice(i,1)[0]);
-    return new Promise((resolve,reject)=>{const item={match,resolve,reject};item.timer=setTimeout(()=>{const n=pending.indexOf(item);if(n>=0)pending.splice(n,1);reject(new Error('Timed out: '+match.toString()+'; recent: '+JSON.stringify(queue.slice(-3).map(m=>({t:m.t,msg:m.msg})))));},25000);pending.push(item);});
+    return new Promise((resolve,reject)=>{const item={match,resolve,reject};item.timer=setTimeout(()=>{const n=pending.indexOf(item);if(n>=0)pending.splice(n,1);reject(new Error('Timed out: '+match.toString()+'; recent: '+JSON.stringify(queue.slice(-3).map(m=>({t:m.t,msg:m.msg})))));},60000);pending.push(item);});
   };
   await new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>reject(new Error('WebSocket open timeout')),10000);

@@ -13,12 +13,12 @@
     { id: 'launch',  name: '發表會', long: '上市發表會',     hint: '金馬桶正式上市' }
   ];
   // One layout drives architecture, seats, collision and server navigation.
-  G.LAYOUT = 'summit-villa-3';
+  G.LAYOUT = 'arrival-villa-4';
   G.ROOMS = [
     {id:'A',name:'研發一處',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
     {id:'B',name:'研發二處',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
     {id:'M',name:'行銷工作室',sub:'STUDIO / 12 SEATS',x:-26,z:30,w:28,d:18,color:'#bca0af',seats:12},
-    {id:'board',name:'董事會',sub:'THE BOARD',x:26,z:30,w:28,d:18,color:'#b69d70'},
+    {id:'board',name:'董事長室',sub:'CHAIRPERSON / EXHIBITION',x:26,z:30,w:28,d:18,color:'#b69d70'},
     {id:'lounge',name:'茶水間',sub:'COFFEE & CONVERSATION',x:-30,z:-22,w:20,d:16,color:'#b7a17c'},
     {id:'arcade',name:'遊戲室',sub:'SIDE QUEST',x:-9,z:-22,w:20,d:16,color:'#a18abd'},
     {id:'wc',name:'廁所',sub:'RESET YOURSELF',x:9,z:-22,w:14,d:16,color:'#80aaa9'},
@@ -47,7 +47,7 @@
       for(const half of [-1,1])G.WALLS.push({x:r.x+half*(r.w/4+1),z:r.z+side*r.d/2,w:r.w/2-2,d:.32});
     }
   }
-  for(const d of G.DESKS)G.SOLIDS.push({x:d.x,z:d.z+.6,w:3.05,d:2.9});
+  for(const d of G.DESKS)G.SOLIDS.push({x:d.x,z:d.z,w:3.05,d:1.6});
   // Equipment islands and furnishings; the same footprints are rendered below.
   G.FIXTURES = [
     ...[-36,-30,-24].map(x=>({type:'coffee',x,z:-27,w:4,d:2})),
