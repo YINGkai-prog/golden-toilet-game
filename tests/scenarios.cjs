@@ -11,7 +11,7 @@ test('50 sockets: no self-voting, runoff, navigation, arcade, restricted AI core
  vote(4,0);assert.match((await peers[4].wait('err')).msg,/三位董事/);
  host.send({t:'h.phase',phase:'build'});assert.match((await host.wait('toast')).msg,/互選董事長/);
  vote(0,1);vote(1,2);vote(2,0);let tied=(await host.wait(m=>m.t==='state'&&m.s.board.tied)).s;assert.equal(tied.board.chair,null);assert.equal(tied.board.round,round+1);round++;
- vote(0,1);vote(1,0);vote(2,0);let elected=(await host.wait(m=>m.t==='state'&&m.s.board.chair===peers[0].you.id)).s;assert.equal(elected.players[0].rank,'boss');assert.equal(elected.players[1].rank,'board');
+ vote(1,0);vote(2,0);let elected=(await host.wait(m=>m.t==='state'&&m.s.board.chair===peers[0].you.id)).s;assert.equal(Object.keys(elected.board.votes).length,2);assert.equal(elected.players[0].rank,'boss');assert.equal(elected.players[1].rank,'board');
  host.send({t:'h.makeBoss',id:peers[4].you.id});assert.match((await host.wait('err')).msg,/不能指定/);
  const reconnect=await app.connect({token:peers[0].you.token});assert.equal(reconnect.welcome.you.id,peers[0].you.id);assert.equal(reconnect.welcome.s.board.chair,peers[0].you.id);
  const builderIndex=elected.players.findIndex(p=>p.rank==='staff'&&p.team==='A'),builder=peers[builderIndex],manager=peers[elected.players.findIndex(p=>p.rank==='manager'&&p.team==='A')],maker=peers[elected.players.findIndex(p=>p.team==='M')];
@@ -33,3 +33,4 @@ test('50 sockets: no self-voting, runoff, navigation, arcade, restricted AI core
  host.send({t:'h.kick',id:peers[0].you.id});const kicked=(await host.wait(m=>m.t==='state'&&m.s.players.length===49)).s;assert.equal(kicked.board.chair,null);assert.equal(kicked.players.filter(p=>p.rank==='boss').length,0);
  fs.mkdirSync(path.join(__dirname,'../artifacts'),{recursive:true});fs.writeFileSync(path.join(__dirname,'../artifacts/game-verification.json'),JSON.stringify({passed:true,connections:50,release:'nexus-2026.10.05',assertions:['no-self-vote','runoff','election','chair-only-core','movement','work-presence','arcade-score','AI-autonomous','AI-pause','AI-winner','poster','survey','gallery','export','chair-removal'],at:new Date().toISOString()},null,2));
 });
+
