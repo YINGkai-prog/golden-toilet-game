@@ -86,3 +86,9 @@
 - `/game-guide.html` 有新錄影與逐角色實際操作截圖。
 
 新增驗證：`node --test tests/arrival.test.cjs tests/scenarios.cjs`；`NODE_PATH` 可找到 Playwright 時執行 `node tests/arrival-guide.cjs` 與 `node tests/arrival-polish.cjs`。瀏覽器測試應在允許本機 IPC 的環境執行。
+
+## 畫質修復（2.4.1）
+
+移除未提示、無法恢復的動態解析度下降。預設精緻（1.5–2 倍渲染）；極致 2 倍；標準 1 倍。大型視窗仍有像素預算，但不低於原生 CSS 解析度。背景分頁不會改變玩家的設定。新增木材與石材、暖光、金屬框架、材質反射、4096 陰影和圓滑角色幾何；保留共享幾何及實例化。所有玩法規則沿用 2.4。
+
+驗證：node tests/quality-check.cjs . quality-final（正常允許 IPC 的本機環境）。1920×1080 視窗、50 條真實 WebSocket，對比同鏡頭前後截圖及幀率；另外覆蓋 2560 寬、390px 手機、畫質切換／保留、背景分頁、無瀏覽器錯誤。單一 RTX 5080 Laptop 渲染器的結果不代表全部玩家裝置。
