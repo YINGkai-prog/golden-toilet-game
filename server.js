@@ -1217,7 +1217,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'lumen-2026.10.05', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'rog-city-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
@@ -1261,3 +1261,4 @@ process.on('SIGINT', () => {
   try { fs.writeFileSync(STATE_FILE, JSON.stringify(game)); } catch (e) { /* ignore */ }
   process.exit(0);
 });
+
