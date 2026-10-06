@@ -15,8 +15,8 @@
     meeting: { name: '會議室', sub: '提案・決策', x0: -2, x1: 8, z0: -11, z1: -4.4, floor: 0xc8d9d6, door: 3 },
     boss:    { name: '董事長室', sub: '閒人勿進', x0: 8, x1: 17, z0: -11, z1: -4.4, floor: 0xe6c99c, door: 12.5 },
     hall:    { x0: -17, x1: 17, z0: -4.4, z1: -2.8, floor: 0xe9e5d7 },
-    A:       { name: '研發一處', sub: '方案 A', x0: -17, x1: -3.4, z0: -2.8, z1: 7.4, floor: 0xc3d9c9 },
-    B:       { name: '研發二處', sub: '方案 B', x0: -3.4, x1: 10.2, z0: -2.8, z1: 7.4, floor: 0xc6d6e3 },
+    A:       { name: '第一研發部', sub: '方案 A', x0: -17, x1: -3.4, z0: -2.8, z1: 7.4, floor: 0xc3d9c9 },
+    B:       { name: '第二研發部', sub: '方案 B', x0: -3.4, x1: 10.2, z0: -2.8, z1: 7.4, floor: 0xc6d6e3 },
     M:       { name: '行銷處', sub: '上市推廣', x0: 10.2, x1: 17, z0: -2.8, z1: 7.4, floor: 0xe3cede },
     lobby:   { name: '大廳', sub: '全員集合', x0: -17, x1: 17, z0: 7.4, z1: 12, floor: 0xf0e9d9 }
   };
@@ -277,7 +277,7 @@
         <div class="of-tools"><button data-o="follow" aria-pressed="false">跟著董事長</button><button data-o="names" aria-pressed="false">人名</button><button data-o="home">全景</button></div>
         <div class="of-board" style="display:none"></div>
         <div class="of-zoom"><button data-o="in" aria-label="放大">+</button><button data-o="out" aria-label="縮小">−</button></div>
-        <div class="of-nav" aria-label="公司區域"><button data-o="room-A">研發一處</button><button data-o="room-B">研發二處</button><button data-o="room-M">行銷處</button><button data-o="room-break">休息室</button><button data-o="room-boss">董事長室</button></div>
+        <div class="of-nav" aria-label="公司區域"><button data-o="room-A">第一研發部</button><button data-o="room-B">第二研發部</button><button data-o="room-M">行銷處</button><button data-o="room-break">休息室</button><button data-o="room-boss">董事長室</button></div>
         <div class="of-hint">拖曳旋轉 · 右鍵平移 · 滾輪縮放 · 點人看狀態</div>
         <div class="of-status" style="display:none"></div>`;
       this.root.appendChild(this.ui);
