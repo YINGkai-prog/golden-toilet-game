@@ -362,14 +362,18 @@
 
     _bindInput() {
       const cv = this.renderer.domElement;
-      let down = null;
+      let down = null; const fingers = new Map(); let pinching = false;
+      cv.style.touchAction = 'none';
       cv.addEventListener('contextmenu', e => e.preventDefault());
       cv.addEventListener('pointerdown', e => {
+        fingers.set(e.pointerId,[e.clientX,e.clientY]);
+        if(fingers.size>1){pinching=true;down=null;cv.setPointerCapture(e.pointerId);return;}
         down = { x: e.clientX, y: e.clientY, yaw: this.yaw, pitch: this.pitch, btn: e.button, moved: false, shift: e.shiftKey || e.altKey };
         cv.setPointerCapture(e.pointerId);
         this.lastInteract = performance.now();
       });
       cv.addEventListener('pointermove', e => {
+        if(fingers.has(e.pointerId)){const old=fingers.get(e.pointerId),other=[...fingers.entries()].find(([id])=>id!==e.pointerId)?.[1];fingers.set(e.pointerId,[e.clientX,e.clientY]);if(pinching){if(other&&this.opts.orbit){const before=Math.hypot(old[0]-other[0],old[1]-other[1]),after=Math.hypot(e.clientX-other[0],e.clientY-other[1]);if(after>1)this.radius=Math.max(9,Math.min(55,this.radius*before/after));this.dirty=true;this.lastInteract=performance.now();this.ghost.visible=false;}return;}}
         if (down) {
           const dx = e.clientX - down.x, dy = e.clientY - down.y;
           if (!down.moved && Math.hypot(dx, dy) > 5) down.moved = true;
@@ -385,6 +389,7 @@
         }
       });
       const up = e => {
+        fingers.delete(e.pointerId);if(pinching){if(!fingers.size)pinching=false;down=null;return;}
         if (!down) return;
         const d = down; down = null;
         if (!d.moved && this.opts.interactive) {
@@ -397,7 +402,7 @@
         }
       };
       cv.addEventListener('pointerup', up);
-      cv.addEventListener('pointercancel', () => { down = null; });
+      cv.addEventListener('pointercancel', e => { fingers.delete(e.pointerId);down=null;if(!fingers.size)pinching=false; });
       cv.addEventListener('pointerleave', () => { if (!down) { this.ghost.visible = false; this.dirty = true; } });
       cv.addEventListener('wheel', e => {
         if (!this.opts.orbit) return;
