@@ -78,7 +78,7 @@ class Office {
    this.box('#a9bcb3',x,.05,z,16,.04,8);this.box('#f7f8f1',x,1.1,z,14,.24,3.6);for(let dx of [-5,5])this.box('#b3c3bb',x+dx,.54,z,1.1,1.1,2.6);
    for(let dx of [-5,-3,-1,1,3,5])for(let side of [-1,1]){this.box('#c2c9b3',x+dx,.7,z+side*2.7,1,.2,1);this.box('#b4bfa7',x+dx,1.2,z+side*3.15,1,1,.15);this.box('#b5c7c3',x+dx,1.26,z+side*.8,.9,.08,.6);}
   }else if(f.type==='reception'){
-   this.box('#f7faf3',x,1,z,8,2,2);this.box('#a8bfb7',x,1.18,z+1.02,7.4,.035,.03,undefined,true);this.box('#d9e5de',x-1.5,2.3,z,1.4,.8,.13);this.label('G O L D E N  B O X',x,z+5,12,'#627b6d');
+   this.box('#f7faf3',x,1,z,8,2,2);this.box('#a8bfb7',x,1.18,z+1.02,7.4,.035,.03,undefined,true);this.box('#d9e5de',x-1.5,2.3,z,1.4,.8,.13);this.label('G O L D E N  T O I L E T',x,z+5,12,'#627b6d');
   }else if(f.type==='planter'){
    this.box('#b6c7b0',x,.18,z,8,.32,8);this.box('#a6b597',x,.37,z,7.5,.08,7.5);this.tree(x,z,1.35);for(let dx of [-3.8,3.8])this.box('#f1f2e7',x+dx,.56,z,1,.65,8.6);
   }else if(f.type==='patio'){
@@ -94,13 +94,13 @@ class Office {
   }
  }
  world(){
-  this.box('#091322',0,-.37,0,1800,.45,1800).castShadow=false;
-  this.box('#152c37',0,-.11,3,132,.09,120);this.box('#284337',0,-.04,9,90,.08,100);
+  this.box('#112d26',0,-.37,0,1800,.45,1800).castShadow=false;
+  this.box('#183c30',0,-.11,3,132,.09,120);this.box('#284337',0,-.04,9,90,.08,100);
   // The road continues beyond the campus into a softly fading forest city.
-  for(let x of [-92,92])this.box('#263c51',x,-.02,0,13,.06,1400).castShadow=false;
+  for(let x of [-92,92])this.box('#87948e',x,-.02,0,13,.06,1400).castShadow=false;
   for(let z of [65,-90,170,-210]){
-   this.box('#23374b',0,-.015,z,1400,.08,12).castShadow=false;
-   this.box('#52687a',0,.02,z-7.2,1400,.12,2.4).castShadow=false;this.box('#52687a',0,.02,z+7.2,1400,.12,2.4).castShadow=false;
+   this.box('#84918d',0,-.015,z,1400,.08,12).castShadow=false;
+   this.box('#ced5c4',0,.02,z-7.2,1400,.12,2.4).castShadow=false;this.box('#ced5c4',0,.02,z+7.2,1400,.12,2.4).castShadow=false;
    for(let x=-350;x<350;x+=12)this.box('#dce0ce',x,.04,z,4,.025,.15).castShadow=false;
   }
   for(let z=60;z<=70;z+=1.4)this.box('#e4e7da',0,.07,z,6,.035,.6);
@@ -112,7 +112,7 @@ class Office {
   this.core=new T.Group();this.scene.add(this.core);
   for(const r of G.ROOMS){
    if(!r.base){
-    const floor=r.outdoor?(r.id==='road'?'#23374b':r.id==='terrace'?'#d7dcca':r.id==='smoking'?'#d5dccb':r.id==='courtyard'?'#d6dec9':'#204638'):(r.id==='M'||r.id==='board'?'#e7e8de':'#f0f3ed');
+    const floor=r.outdoor?(r.id==='road'?'#84918d':r.id==='terrace'?'#d7dcca':r.id==='smoking'?'#d5dccb':r.id==='courtyard'?'#d6dec9':'#204638'):(r.id==='M'||r.id==='board'?'#e7e8de':'#f0f3ed');
     if(!['terrace','road','pool'].includes(r.id))this.box(floor,r.x,.075,r.z,r.w-.08,.05,r.d-.08).castShadow=false;
     if(!r.outdoor)this.box(r.color,r.x,.13,r.z+r.d/2-.3,3.5,.04,.12,undefined,true);
     this.label(r.name,r.x,r.z+r.d/2-1.15,Math.min(r.w-2,8),'#4c6761');
@@ -144,7 +144,31 @@ class Office {
   for(const x of [-51,-38,-24,-10,5,21,37,53]){this.tree(x,-53,1.5);this.tree(x,-40,1.2);}
   this.box('#d3d8be',0,.115,-46,124,.05,2.6);
   for(const x of [-48,48]){this.box('#d4deca',x,.09,35,5,.08,25);if(x<0)for(const z of [34,46])this.tree(x-7,z,1.25);}
-  // Detailed hardware city is built by the ROG scene layer.
+  // Deterministic low-poly forest and city blocks continue to the fog horizon.
+  let seed=73;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  for(let i=0;i<310;i++){
+   const x=(rand()-.5)*960,z=(rand()-.5)*960;
+   if(Math.abs(x)<68&&z>-60&&z<80||Math.abs(Math.abs(x)-92)<10||[65,-90,170,-210].some(a=>Math.abs(z-a)<12))continue;
+   this.tree(x,z,.8+rand()*2.7,true);
+  }
+  for(let i=0;i<110;i++){
+   const x=(rand()-.5)*390,z=(rand()-.5)*390;
+   if(Math.abs(x)<68&&z>-61&&z<81||Math.abs(Math.abs(x)-92)<11||[65,-90,170,-210].some(a=>Math.abs(z-a)<13))continue;
+   this.tree(x,z,1.3+rand()*1.4,true);
+  }
+  for(let row=0;row<2;row++)for(let i=0;i<8;i++){
+   const x=-150+i*43,z=-127-row*45,h=15+(i*7+row*11)%23,w=14+(i%3)*3;
+   this.box('#2c4147',x,h/2,z,w,h,16).castShadow=false;
+   for(let y=3;y<h;y+=3.3)this.box('#d0ae71',x,y,z+8.04,w-1.2,1.35,.06).castShadow=false;
+   this.box('#a5b9a7',x,h,z,w+.5,.3,16.5).castShadow=false;
+  }
+  for(let i=0;i<76;i++){
+   const x=(rand()-.5)*860,z=(rand()-.5)*860;if(Math.hypot(x,z)<145||Math.abs(Math.abs(x)-92)<20||[65,-90,170,-210].some(a=>Math.abs(z-a)<20))continue;
+   const h=8+rand()*33,w=9+rand()*12,d=8+rand()*12;
+   this.box(i%3?'#263c43':'#304a50',x,h/2-.1,z,w,h,d).castShadow=false;
+   for(let y=3;y<h;y+=3.5)this.box('#cfb77f',x,y,z+d/2+.02,w-.7,1.4,.06).castShadow=false;
+   this.box('#aebfa9',x,h,z,w+.4,.2,d+.4).castShadow=false;
+  }
   // Parked electric cars and street lamps establish the villa's urban scale.
   for(const x of [-31,-20,20,31]){this.box('#d6dfd6',x,.68,56,4.7,1.1,2.1);this.box('#7c9593',x,1.43,56,2.6,.6,1.85);for(const dx of [-1.5,1.5])for(const dz of [-1,1])this.ball('#586b65',x+dx,.36,56+dz,.42,.42,.19);}
   for(const x of [-57,-35,35,57]){this.cylinder('#869b8e',x,3,57,.09,6);this.box('#f2f5e8',x+.5,6,57,1.3,.17,.4,undefined,true);}
@@ -172,4 +196,3 @@ class Office {
 }
 window.Office=Office;
 })();
-

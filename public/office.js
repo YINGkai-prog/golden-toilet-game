@@ -402,7 +402,7 @@
       S.add('box', 18.7, -.12, 2.2, 1.3, .16, 5.6, 0xb5c8bc); L.add('box', 18.7, -.03, 2.2, 1.05, .02, 5.3, 0x7db1b1);
       for (let x = -16; x < 2; x += 2.1) S.add('box', x, -.05, 13.4, .14, .45, .14, 0xe7cc8a);
       // 招牌
-      const sign = new T.Mesh(new T.PlaneGeometry(3.6, .9), new T.MeshBasicMaterial({ map: signTexture('GOLDEN BOX', '金馬桶公司', '#3b5c53', '#e9e2c9') }));
+      const sign = new T.Mesh(new T.PlaneGeometry(3.6, .9), new T.MeshBasicMaterial({ map: signTexture('GOLDEN TOILET', '金馬桶公司', '#3b5c53', '#e9e2c9') }));
       sign.position.set(-1.8, .55, fz1 + .13); sc.add(sign);
       this.makeCar();
 
@@ -594,7 +594,7 @@
         mesh.position.set(x,y,z+.035); this.scene.add(mesh);
       };
       art(-8.5,1.72,-10.72,2.55,.62,'COFFEE FIRST','靈感補給站','#fff2d0','#86643e');
-      art(12.5,1.72,-10.72,3.5,.74,'GOLDEN BOX','一座馬桶的誕生','#35575c','#f8d27c');
+      art(12.5,1.72,-10.72,3.5,.74,'GOLDEN TOILET','一座馬桶的誕生','#35575c','#f8d27c');
       art(3,2.17,-10.72,3.5,.28,'MAKE IT HAPPEN','','#447b7d','#fff6de');
       // The marketing corner gets a magazine rack and bright creative supplies.
       for (let i=0;i<5;i++) {
@@ -1316,7 +1316,7 @@
       }
       const ph = this.S.phase;
       const phaseName = (G.PHASES.find(x => x.id === ph) || {}).long || '';
-      const html = `<b>金盒公司 <small>LIVE OFFICE</small></b><br><span class="ph">辦公室實況・${esc(phaseName)}</span><div class="of-chips"><span class="of-chip w">🧑‍💻 認真 ${work}</span><span class="of-chip s">😴 摸魚 ${slack}</span><span class="of-chip a">💢 生氣 ${angry}</span><span class="of-chip m">👥 其他 ${meet}</span></div>`;
+      const html = `<b>金桶公司 <small>LIVE OFFICE</small></b><br><span class="ph">辦公室實況・${esc(phaseName)}</span><div class="of-chips"><span class="of-chip w">🧑‍💻 認真 ${work}</span><span class="of-chip s">😴 摸魚 ${slack}</span><span class="of-chip a">💢 生氣 ${angry}</span><span class="of-chip m">👥 其他 ${meet}</span></div>`;
       if (html !== this._addr) { this.addr.innerHTML = html; this._addr = html; }
       slackers.sort((x, y) => (x.slackSince || t) - (y.slackSince || t));
       for (const a of this.agents.values()) a.slackRank = 99;

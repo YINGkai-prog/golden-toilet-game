@@ -22,7 +22,7 @@
     {id:'lounge',name:'茶水間',sub:'COFFEE & CONVERSATION',x:-30,z:-22,w:20,d:16,color:'#b7a17c'},
     {id:'arcade',name:'遊戲室',sub:'SIDE QUEST',x:-9,z:-22,w:20,d:16,color:'#a18abd'},
     {id:'wc',name:'廁所',sub:'RESET YOURSELF',x:9,z:-22,w:14,d:16,color:'#80aaa9'},
-    {id:'atrium',name:'迎賓大廳',sub:'GOLDEN BOX / ARRIVAL',x:0,z:28,w:21,d:34,color:'#92a8a2',open:true},
+    {id:'atrium',name:'迎賓大廳',sub:'GOLDEN TOILET / ARRIVAL',x:0,z:28,w:21,d:34,color:'#92a8a2',open:true},
     {id:'courtyard',name:'中庭足球場',sub:'OVERTIME / FOOTBALL',x:0,z:1,w:21,d:18,color:'#71986c',outdoor:true},
     {id:'terrace',name:'戶外露台',sub:'TERRACE / SLOW DOWN',x:0,z:49,w:84,d:8,color:'#b3a284',outdoor:true},
     {id:'pool',name:'月光泳池',sub:'A × B / WATER VOLLEY',x:52,z:28,w:20,d:24,color:'#6cbbd0',outdoor:true},
