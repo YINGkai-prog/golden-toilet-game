@@ -1,6 +1,6 @@
-# 金盒公司 / NIGHT SHIFT
+# 金桶公司 / NIGHT SHIFT
 
-50 人即時辦公室共創遊戲。Release `rog-metropolis-2026.10.06`（2.6.0）。
+50 人即時辦公室共創遊戲。Release `golden-forest-2026.10.06`（2.7.0）。
 
 ## 開始
 
@@ -110,3 +110,6 @@
 驗證：`tests/quality-check.cjs`（50 條 WebSocket、桌機與手機、畫質切換與保留）、`tests/metropolis-visual.cjs`（城市鏡頭、桌面清空、三盞聚光燈、清除後恢復）。效能量測為一台電腦上的單一渲染器與 50 條連線，不代表 50 台實體裝置。公開導覽展示實際瀏覽器截圖，與概念圖區別標示。
 
 `hardware-panels.png` 由內建 imagegen 生成供建築材質使用；不是背景概念圖。ROG 圖形沿用使用者提供素材的 alpha，建築上以冷白燈光呈現。
+## 金桶公司 2.7 — golden-forest-2026.10.06
+恢復 Lumen 暖光森林別墅，移除城市與 ROG 品牌展示。八區大標題架高到鋼梁上方，入口招牌為金桶公司，品牌圖案為原創馬桶 SVG。保留清桌與聚光馬桶展示。
+
