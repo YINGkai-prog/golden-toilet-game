@@ -186,6 +186,7 @@ function tallyGallery() {
 }
 
 function timedPhase(ph) {
+  if(ph==='brief')return 45;
   if(game.show?.active)return G.SHOW_PLAN.find(p=>p.id===ph)?.seconds||0;
   return ph === 'brief' ? game.settings.briefSec : ph === 'build' ? game.settings.buildSec : ph === 'poster' ? game.settings.posterSec : 0;
 }
@@ -195,6 +196,7 @@ function setPhase(ph) {
   if (!['lobby','roles'].includes(ph) && !game.board.chair) { broadcast({t:'toast',msg:'請先由三位董事互選董事長（不能投自己）'},c=>c.host); return; }
   if(game.show)game.show.hold=null;
   const prev = game.phase;
+  if(prev==='brief'&&ph!=='brief'&&game.brief.choice==null)briefFlow.finish();
   game.phase = ph;
   game.timeUp = false;
   game.pausedRemaining = null;
@@ -204,6 +206,7 @@ function setPhase(ph) {
 
   if (ph === 'roles' && !game.rolesPublished) { computeRoles(); game.rolesPublished = true; }
   if (ph !== 'lobby' && !game.rolesPublished) { computeRoles(); game.rolesPublished = true; }
+  if(ph==='brief')briefFlow.start();
   if (ph === 'poster' || ph === 'gallery' || ph === 'launch') {
     if (!game.review.winner || prev === 'review') game.review.winner = winnerTeam();
   }
@@ -577,16 +580,14 @@ function fx(obj) { broadcast(Object.assign({ t: 'fx', at: now() }, obj)); }
 // 給大螢幕辦公室實況用的活動訊號（只送主持人／辦公室畫面）
 function actHost(id, k, x) { engagement.record(game.players[id],k,k); broadcast({ t: 'act', id, k, x }, c => c.host || c.office); }
 
+const briefFlow=require('./brief.cjs')({getGame:()=>game,G,changed:()=>broadcastState(true),save:scheduleSave,fx});
 // 計時器
 setInterval(() => {
+  briefFlow.tick();
   if (!game.phaseEndsAt || game.timeUp || game.pausedRemaining != null) return;
   if (now() >= game.phaseEndsAt) {
     game.timeUp = true;
-    if (game.phase === 'brief' && game.brief.choice == null) {
-      game.brief.choice = Math.floor(Math.random() * G.BRIEFS.length);
-      game.brief.auto = true;
-      fx({ kind: 'brief', choice: game.brief.choice, auto: true });
-    }
+    if(game.phase==='brief'&&game.brief.choice==null)briefFlow.finish();
     fx({ kind: 'timeup', phase: game.phase });
     if(game.show?.active){
       const i=G.PHASE_IDS.indexOf(game.phase);
@@ -629,12 +630,12 @@ setInterval(()=>{sim.tick();recreation.tick();campus.tick();party.tick();engagem
 function onMessage(c, m) {
   if (!m || typeof m.t !== 'string') return;
   const p = c.player;
-  if(p&&!c.bot&&['party.vote','input.active','chat.send','sports.hit','office.move','work.goto','exhibit.inspect','board.vote','place','remove','sticker','banner','visit','react','mini.start','mini.input','coffee.join','coffee.step','dance','arcade.start','arcade.hit','core.inspect','brief','vote','bossPick','poster','price','survey','gvote','gpick'].includes(m.t))campus.activity(p);
+  if(p&&!c.bot&&['party.vote','input.active','chat.send','sports.hit','office.move','work.goto','exhibit.inspect','board.vote','place','remove','sticker','banner','visit','react','pressure.start','pressure.stop','mini.start','mini.input','coffee.join','coffee.step','dance','arcade.start','arcade.hit','core.inspect','brief.vote','brief','vote','bossPick','poster','price','survey','gvote','gpick'].includes(m.t))campus.activity(p);
   if(['chat.send','input.active','sports.hit'].includes(m.t)){if(rateOk(c))campus.handle({player:p,host:c.host,reply:msg=>send(c,msg),get chatAt(){return c.chatAt;},set chatAt(v){c.chatAt=v;}},m);return;}
   if(m.t==='party.vote'){if(rateOk(c)){party.handle(c,m);if(p&&game.party?.active?.votes[p.id]!=null)engagement.record(p,'proposal',m.id);}return;}
   if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect','work.goto','exhibit.inspect'].includes(m.t)) { if(rateOk(c)){sim.handle({player:p,reply:msg=>send(c,msg)},m);if(p&&m.t==='board.vote'&&game.board.votes[p.id])engagement.record(p,'election');if(p&&m.t==='exhibit.inspect'&&p.inspection?.phaseAt===game.phaseStartedAt)engagement.record(p,'exhibit');} return; }
 
-  if (['mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t)) {if(rateOk(c)){const before=JSON.stringify([p?.mini?.score,game.recreation?.coffee?.entries?.[p?.id]?.cups]);recreation.handle({player:p,reply:msg=>send(c,msg)},m);if(p&&before!==JSON.stringify([p.mini?.score,game.recreation?.coffee?.entries?.[p.id]?.cups]))engagement.record(p,'leisure',m.t);}return;}
+  if (['pressure.start','pressure.stop','mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t)) {if(rateOk(c)){const before=JSON.stringify([game.recreation?.pressure?.best?.[p?.id]?.remaining,p?.mini?.score,game.recreation?.coffee?.entries?.[p?.id]?.cups]);recreation.handle({player:p,reply:msg=>send(c,msg)},m);if(p&&before!==JSON.stringify([game.recreation?.pressure?.best?.[p.id]?.remaining,p.mini?.score,game.recreation?.coffee?.entries?.[p.id]?.cups]))engagement.record(p,'leisure',m.t);}return;}
   switch (m.t) {
     case 'appearance.roll': if(cooldown(c,'look',700)&&rateOk(c,2))send(c,{t:'appearance.offer',offer:appearances.offer(c)});return;
     case 'hello': {
@@ -761,14 +762,8 @@ function onMessage(c, m) {
       fx({ kind: 'react', team: m.team === 'B' ? 'B' : m.team === 'A' ? 'A' : null, emoji: m.emoji, by: p.id });
       return;
     }
-    case 'brief': {
-      if (!p || p.rank !== 'boss' || game.phase !== 'brief') return;
-      const i = m.choice | 0; if (i < 0 || i >= G.BRIEFS.length) return;
-      game.brief.choice = i; game.brief.auto = false;
-      fx({ kind: 'brief', choice: i });
-      broadcastState(true); scheduleSave();
-      return;
-    }
+    case 'brief.vote':
+    case 'brief': { if(rateOk(c)&&briefFlow.handle(c,m)&&p)engagement.record(p,'proposal','brief');return; }
     case 'vote': {
       if (!p || game.phase !== 'review') return;
       if (!['A','B','C'].includes(m.team)) return;
@@ -1120,7 +1115,8 @@ function botTick() {
       else if(t>=r.ready)botSend(b,{t:'arcade.hit',round:r.id,tile:Math.random()<.8?r.target:(r.target+1)%4});
     }
     const key = ph + ':' + game.gameId + ':' + game.phaseStartedAt;
-    if (ph === 'brief' && p.rank === 'boss') botOnce(b, key, 4, 9, () => botSend(b, { t: 'brief', choice: Math.floor(Math.random() * G.BRIEFS.length) }));
+    if(ph==='brief'&&['lead','manager'].includes(p.rank))botOnce(b,key,4,24,()=>botSend(b,{t:'brief.vote',choice:Math.floor(Math.random()*G.BRIEFS.length)}));
+    if (ph === 'brief' && p.rank === 'boss') botOnce(b, key,32,38, () => botSend(b, { t: 'brief', choice: Math.floor(Math.random() * G.BRIEFS.length) }));
     if(ph==='review'&&sim.inBoard(p)&&p.inspection?.phaseAt!==game.phaseStartedAt)botSend(b,{t:'exhibit.inspect'});
     if (ph === 'review') {
       botOnce(b, key, 1, 10, () => {
@@ -1261,7 +1257,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-finale-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-org-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
