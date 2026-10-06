@@ -62,6 +62,8 @@ function freshGame() {
     ai: {mode:'STANDBY',progress:0,cycles:0,plan:null,strategy:null},
     gameId: rid(4),
     phase: 'lobby',
+    show: null,
+    intro: null,
     phaseEndsAt: null,
     pausedRemaining: null,
     timeUp: false,
@@ -183,12 +185,14 @@ function tallyGallery() {
 }
 
 function timedPhase(ph) {
+  if(game.show?.active)return G.SHOW_PLAN.find(p=>p.id===ph)?.seconds||0;
   return ph === 'brief' ? game.settings.briefSec : ph === 'build' ? game.settings.buildSec : ph === 'poster' ? game.settings.posterSec : 0;
 }
 
 function setPhase(ph) {
   if (!G.PHASE_IDS.includes(ph)) return;
   if (!['lobby','roles'].includes(ph) && !game.board.chair) { broadcast({t:'toast',msg:'請先由三位董事互選董事長（不能投自己）'},c=>c.host); return; }
+  if(game.show)game.show.hold=null;
   const prev = game.phase;
   game.phase = ph;
   game.timeUp = false;
@@ -334,6 +338,7 @@ function publicState(includeHistory=false) {
     gameId: game.gameId,
     phase: game.phase,
     phaseStartedAt:game.phaseStartedAt,
+    show:game.show, intro:game.intro,
     phaseEndsAt: game.phaseEndsAt,
     pausedRemaining: game.pausedRemaining,
     timeUp: game.timeUp,
@@ -577,6 +582,12 @@ setInterval(() => {
       fx({ kind: 'brief', choice: game.brief.choice, auto: true });
     }
     fx({ kind: 'timeup', phase: game.phase });
+    if(game.show?.active){
+      const i=G.PHASE_IDS.indexOf(game.phase);
+      if(game.phase==='roles'&&!game.board.chair){game.show.hold='等待三位董事選出董事長；完成後請按繼續下一階段。';}
+      else if(i===G.PHASE_IDS.length-1){game.show.active=false;game.show.completedAt=now();}
+      else if(game.show.auto){setPhase(G.PHASE_IDS[i+1]);return;}
+    }
     broadcastState(true);
     scheduleSave();
   }
@@ -829,6 +840,17 @@ function onMessage(c, m) {
   // ---- 主持人指令
   if (!c.host) return;
   switch (m.t) {
+    case 'h.intro': {
+      if(game.phase!=='lobby'||game.show?.active){send(c,{t:'err',msg:'前導影片請在正式遊戲開始前播放。'});return;}
+      game.intro={startedAt:now(),endsAt:now()+60000};broadcastState(true);scheduleSave();return;
+    }
+    case 'h.stopIntro': {game.intro=null;broadcastState(true);scheduleSave();return;}
+    case 'h.startShow': {
+      if(game.phase!=='lobby'||game.show?.active){send(c,{t:'err',msg:'10 分鐘流程只能從報到階段啟動一次；新場次請先重置。'});return;}
+      game.show={active:true,auto:m.auto!==false,startedAt:now(),hold:null,adjusted:false};game.intro=null;
+      game.settings={...game.settings,briefSec:45,buildSec:210,posterSec:120};game.lobby={open:true,openAt:now()+3000};setPhase('lobby');return;
+    }
+    case 'h.autoShow': {if(game.show){game.show.auto=!!m.auto;broadcastState(true);scheduleSave();}return;}
     case 'h.openLobby': {
       game.lobby.open = true;
       game.lobby.openAt = now() + 3000;
@@ -837,10 +859,11 @@ function onMessage(c, m) {
       return;
     }
     case 'h.closeLobby': { game.lobby.open = false; broadcastState(true); return; }
-    case 'h.phase': { setPhase(m.phase); return; }
-    case 'h.next': { const i = G.PHASE_IDS.indexOf(game.phase); if (i < G.PHASE_IDS.length - 1) setPhase(G.PHASE_IDS[i + 1]); return; }
-    case 'h.prev': { const i = G.PHASE_IDS.indexOf(game.phase); if (i > 0) setPhase(G.PHASE_IDS[i - 1]); return; }
+    case 'h.phase': { if(game.show)game.show.adjusted=true;setPhase(m.phase); return; }
+    case 'h.next': { if(game.show)game.show.adjusted=true;const i = G.PHASE_IDS.indexOf(game.phase); if (i < G.PHASE_IDS.length - 1) setPhase(G.PHASE_IDS[i + 1]); return; }
+    case 'h.prev': { if(game.show)game.show.adjusted=true;const i = G.PHASE_IDS.indexOf(game.phase); if (i > 0) setPhase(G.PHASE_IDS[i - 1]); return; }
     case 'h.time': {
+      if(game.show)game.show.adjusted=true;
       const d = (+m.sec || 0) * 1000;
       if (game.pausedRemaining != null) game.pausedRemaining = Math.max(0, game.pausedRemaining + d);
       else if (game.phaseEndsAt) { game.phaseEndsAt = Math.max(now(), game.phaseEndsAt + d); if (game.phaseEndsAt > now()) game.timeUp = false; }
@@ -848,6 +871,7 @@ function onMessage(c, m) {
       broadcastState(true); return;
     }
     case 'h.endNow': {
+      if(game.show)game.show.adjusted=true;
       if (game.pausedRemaining != null) game.pausedRemaining = null;
       game.phaseEndsAt = now();
       broadcastState(true); return;
@@ -1148,7 +1172,7 @@ function pngEncode(w, h, rgb) {
 
 // ---------------------------------------------------------------- HTTP
 const embCache = {};
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.jpg':'image/jpeg','.jpeg':'image/jpeg','.webm':'video/webm','.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.jpg':'image/jpeg','.jpeg':'image/jpeg','.mp4':'video/mp4','.webm':'video/webm','.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json' };
 
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
@@ -1217,7 +1241,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'golden-forest-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'host-show-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
