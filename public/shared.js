@@ -15,8 +15,8 @@
   // One layout drives architecture, seats, collision and server navigation.
   G.LAYOUT = 'arrival-villa-4';
   G.ROOMS = [
-    {id:'A',name:'研發一處',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
-    {id:'B',name:'研發二處',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
+    {id:'A',name:'第一研發部',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
+    {id:'B',name:'第二研發部',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
     {id:'M',name:'行銷工作室',sub:'STUDIO / 12 SEATS',x:-26,z:30,w:28,d:18,color:'#bca0af',seats:12},
     {id:'board',name:'董事長室',sub:'CHAIRPERSON / EXHIBITION',x:26,z:30,w:28,d:18,color:'#b69d70'},
     {id:'lounge',name:'茶水間',sub:'COFFEE & CONVERSATION',x:-30,z:-22,w:20,d:16,color:'#b7a17c'},
@@ -99,8 +99,8 @@
   ];
 
   G.TEAMS = {
-    A: { id: 'A', name: '研發一處', plan: '方案 A', color: '#297c7b', soft: '#dcefeb' },
-    B: { id: 'B', name: '研發二處', plan: '方案 B', color: '#3977bc', soft: '#dde8f5' },
+    A: { id: 'A', name: '第一研發部', plan: '方案 A', color: '#297c7b', soft: '#dcefeb' },
+    B: { id: 'B', name: '第二研發部', plan: '方案 B', color: '#3977bc', soft: '#dde8f5' },
     C: { id:'C',name:'自主 AI',plan:'方案 C',color:'#d2ef96',soft:'#293727' },
     M: { id: 'M', name: '行銷處',   plan: '行銷',   color: '#9566ac', soft: '#eee3f3' }
   };
@@ -121,7 +121,7 @@
   };
 
   G.TITLES = {
-    lead: { A: '研發一處 處長', B: '研發二處 處長', M: '行銷處 處長' },
+    lead: { A: '第一研發部 處長', B: '第二研發部 處長', M: '行銷處 處長' },
     manager: {
       A: ['ID 經理', '機構經理', '散熱經理', '電子經理', '聲學經理', '韌體經理'],
       B: ['ID 經理', '機構經理', '散熱經理', '電子經理', '聲學經理', '韌體經理'],

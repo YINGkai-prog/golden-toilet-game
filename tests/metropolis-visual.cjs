@@ -1,0 +1,16 @@
+'use strict';
+const fs=require('fs'),assert=require('node:assert/strict'),{chromium}=require('playwright'),{start,KEY,delay}=require('./helpers.cjs');
+(async()=>{console.log('Starting visual test');const app=await start();let browser;const errors=[];try{
+ browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1920,height:1080}});
+ page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ await page.addInitScript(()=>{let v;Object.defineProperty(window,'Office',{get:()=>v,set:c=>v=new Proxy(c,{construct(t,a,n){const o=Reflect.construct(t,a,n);window.__office=o;return o;}})});});
+ console.log('Loading visual scene');await page.goto(app.base+'/screen');await page.waitForSelector('#cameraCityDetail');await delay(2500);
+ console.log('Capturing city');await page.locator('#cameraHardwareCity').click();await delay(2000);await page.screenshot({path:'artifacts/metropolis-city.png'});
+ console.log('Capturing street');await page.locator('#cameraCityDetail').click();await delay(1600);await page.screenshot({path:'artifacts/metropolis-street.png'});
+ console.log('Checking exhibition');await page.evaluate(()=>{const o=window.__office;o.inspect('board');o.updateModels();});await delay(1800);assert.equal(await page.evaluate(()=>window.__office.boardProps.visible),true);await page.screenshot({path:'artifacts/board-meeting.png'});
+ // Rendering fixture only: deterministic toilet geometry tests presentation without mutating live games.
+ await page.evaluate(()=>{const o=window.__office,build={};for(let y=0;y<4;y++)for(let x=5;x<9;x++)for(let z=5;z<9;z++)build[[x,y,z]]={c:0};for(let y=4;y<6;y++)for(let x=3;x<11;x++)for(let z=2;z<11;z++)if(y===4||x===3||x===10||z===2||z===10)build[[x,y,z]]={c:y===5?4:0};for(let y=5;y<12;y++)for(let x=4;x<10;x++)for(let z=10;z<12;z++)build[[x,y,z]]={c:y===11?4:0};o.projectionBuilds={A:build,B:build,C:build};o.updateModels();});await delay(2000);
+ const board=await page.evaluate(()=>({props:window.__office.boardProps.visible,lights:window.__office.exhibitionLights.map(e=>e.light.intensity),beams:window.__office.exhibitionLights.every(e=>e.beam.visible),counts:window.__office.exhibits.map(e=>e.count)}));assert.equal(board.props,false);assert.ok(board.lights.every(v=>v>0));assert.ok(board.beams);assert.ok(board.counts.every(v=>v>200));await page.screenshot({path:'artifacts/board-spotlight.png'});
+ await page.evaluate(()=>{const o=window.__office;o.projectionBuilds={A:{},B:{},C:{}};o.updateModels();});assert.ok(await page.evaluate(()=>window.__office.boardProps.visible&&window.__office.exhibitionLights.every(e=>!e.light.intensity&&!e.beam.visible)));
+ assert.deepEqual(errors,[]);fs.writeFileSync('artifacts/metropolis-visual.json',JSON.stringify({passed:true,board,emptyReset:true,errors,at:new Date().toISOString()},null,2));console.log('PASS: city/street views, clean exhibition table, three spotlights and reset.');
+ }finally{await browser?.close();await app.stop();}})().catch(e=>{console.error(e);process.exitCode=1;});

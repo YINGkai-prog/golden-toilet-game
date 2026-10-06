@@ -191,8 +191,8 @@
         const ps = S.players.slice().sort((a, b) => a.joinIdx - b.joinIdx);
         const slots = [
           { lab: '👑 董事長', cls: 'boss', color: '#8a5d14' },
-          { lab: '研發一處 處長', color: G.TEAMS.A.color },
-          { lab: '研發二處 處長', color: G.TEAMS.B.color },
+          { lab: '第一研發部 處長', color: G.TEAMS.A.color },
+          { lab: '第二研發部 處長', color: G.TEAMS.B.color },
           { lab: '行銷處 處長', color: G.TEAMS.M.color }
         ];
         $('#pod', root).innerHTML = slots.map((s, i) => {
