@@ -1257,7 +1257,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-org-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-mobile-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
