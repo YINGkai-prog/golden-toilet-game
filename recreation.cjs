@@ -3,12 +3,26 @@ const {randomBytes}=require('node:crypto');
 module.exports=function({getGame,broadcast,changed,save,clock=Date.now,externalSports=false}){
  const uid=()=>randomBytes(6).toString('hex'),active=()=>Object.values(getGame().players).filter(p=>!p.kicked);
  function state(){const g=getGame();return g.recreation||(g.recreation={football:{x:0,z:1,vx:0,vz:0,score:[0,0],resetAt:0,last:null},coffee:null});}
- function summary(){const s=state();return{...s,activities:active().filter(p=>p.mini||p.dancing).map(p=>({id:p.id,type:p.dancing?'dance':p.mini.type,score:p.mini?.score||0,expires:p.mini?.expires||0}))};}
+ function pressure(){return state().pressure||(state().pressure={best:{},pulseAt:0});}
+ function summary(){const s=state(),b=pressure(),ps=active();return{...s,pressure:{pulseAt:b.pulseAt,top:Object.values(b.best).filter(e=>ps.some(p=>p.id===e.id)).sort((a,b)=>a.remaining-b.remaining||a.at-b.at).slice(0,5),active:ps.filter(p=>p.pressRound).map(p=>({id:p.id,...p.pressRound}))},activities:ps.filter(p=>p.mini||p.dancing).map(p=>({id:p.id,type:p.dancing?'dance':p.mini.type,score:p.mini?.score||0,expires:p.mini?.expires||0}))};}
  const err=(c,msg)=>c.reply({t:'err',msg});
  const round=(p,c)=>{const msg={t:'mini.round',round:p.mini};if(c)c.reply(msg);else broadcast(msg,c=>c.player?.id===p.id);};
- function handle(c,m){if(!['mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t))return false;
+ function handle(c,m){if(!['pressure.start','pressure.stop','mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t))return false;
   const p=c.player,now=clock();if(!p||p.kicked){err(c,'先報到，再開始摸魚。');return true;}
   const room=p.motion?.room;
+  if(m.t.startsWith('pressure.')){
+   if(room!=='arcade'||Math.hypot(p.motion.x+16,p.motion.z+18)>3.6){err(c,'請先走到遊戲室紅色按鈕旁邊');return true;}
+   const b=pressure();
+   if(m.t==='pressure.start'){
+    if(p.pressRound||now<(p.pressReady||0))return true;
+    if(p.mini&&now<p.mini.expires){err(c,'請先結束目前的遊戲');return true;}
+    p.pressRound={round:uid(),started:now,ends:now+10000};b.pulseAt=now;c.reply({t:'pressure.round',round:p.pressRound});changed();return true;
+   }
+   const r=p.pressRound;if(!r||m.round!==r.round)return true;
+   const remaining=r.ends-now,success=remaining>=0;delete p.pressRound;p.pressReady=now+1500;b.pulseAt=now;
+   if(success&&(!b.best[p.id]||remaining<b.best[p.id].remaining)){b.best[p.id]={id:p.id,name:p.name,remaining,at:now};}
+   c.reply({t:'pressure.result',success,remaining:Math.max(0,remaining)});changed();save();return true;
+  }
   if(m.t.startsWith('coffee.')||m.t==='dance'){
    if(room!=='lounge'){err(c,'請先抵達茶水間');return true;}
    if(m.t==='dance'){p.dancing=!p.dancing;changed();return true;}
@@ -41,7 +55,7 @@ module.exports=function({getGame,broadcast,changed,save,clock=Date.now,externalS
  }
  let previous=clock(),frameAt=0;
  function tick(){const now=clock(),dt=Math.min(.1,(now-previous)/1000);previous=now;const s=state(),ps=active();
-  for(const p of ps){if(p.motion?.room!=='lounge')p.dancing=false;if(p.mini&&(p.motion?.room!=='arcade'||now>=p.mini.expires)){round(p);p.mini=null;changed();}const e=s.coffee?.entries[p.id];if(e&&!s.coffee.finished&&now<s.coffee.ends&&p.motion?.room!=='lounge')e.forfeited=true;}
+  for(const p of ps){if(p.pressRound&&(now>p.pressRound.ends||p.motion?.room!=='arcade'||Math.hypot(p.motion.x+16,p.motion.z+18)>3.6)){delete p.pressRound;p.pressReady=now+1500;broadcast({t:'pressure.result',success:false,remaining:0},c=>c.player?.id===p.id);changed();}if(p.motion?.room!=='lounge')p.dancing=false;if(p.mini&&(p.motion?.room!=='arcade'||now>=p.mini.expires)){round(p);p.mini=null;changed();}const e=s.coffee?.entries[p.id];if(e&&!s.coffee.finished&&now<s.coffee.ends&&p.motion?.room!=='lounge')e.forfeited=true;}
   const r=s.coffee;if(r&&!r.finished&&now>=r.ends){r.finished=true;const eligible=Object.entries(r.entries).filter(([id,e])=>!e.forfeited&&ps.some(p=>p.id===id));const max=Math.max(0,...eligible.map(([,e])=>e.cups));r.winners=max?eligible.filter(([,e])=>e.cups===max).map(([id])=>id):[];broadcast({t:'toast',msg:r.winners.length?'咖啡賽結束！'+r.winners.map(id=>getGame().players[id].name).join('、')+'：'+max+' 杯，今晚精神獎！':'咖啡賽結束，大家都去忙正事了。'});changed();save();}
   if(!externalSports){const b=s.football;if(b.resetAt&&now>=b.resetAt){Object.assign(b,{x:0,z:1,vx:0,vz:0,resetAt:0});}
   if(!b.resetAt){
