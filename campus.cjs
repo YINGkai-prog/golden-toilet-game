@@ -5,7 +5,7 @@ module.exports=function({getGame,G,broadcast,changed,save,clock=Date.now}){
  const side=p=>['A','B'].includes(p.team)?p.team:(p.joinIdx%2?'A':'B');
  function state(){const g=getGame();return g.campus||(g.campus={chat:[],serial:0,omni:{x:0,z:20,mode:'welcome',node:0,path:[],flipAt:0,target:null},volley:{x:48,z:28,y:2.5,vx:0,vz:0,vy:0,score:[0,0],resetAt:0,last:null,serve:'A',rally:0}});}
  function summary(includeHistory=true){const s=state();return{...s,chat:includeHistory?s.chat:undefined,omni:{...s.omni,path:undefined},serverNow:clock()};}
- function message(name,text,kind='chat',by=null,rank=null){const s=state();const m={id:++s.serial,at:clock(),name,text,kind,by,rank};if(kind==='event'){broadcast({t:'campus.event',message:m});return m;}s.chat.push(m);s.chat=s.chat.slice(-60);broadcast({t:'chat',message:m});save();return m;}
+ function message(name,text,kind='chat',by=null,rank=null){const s=state();const m={id:++s.serial,at:clock(),name,text,kind,by,rank,bot:!!getGame().players[by]?.bot};if(kind==='event'){broadcast({t:'campus.event',message:m});return m;}s.chat.push(m);s.chat=s.chat.slice(-60);broadcast({t:'chat',message:m});save();return m;}
  function activity(p){if(!p||p.bot||p.kicked)return;p.lastActionAt=clock();if(p.aiControlled){p.aiControlled=false;if(p.arrival?.stage==='done'){p.motion.path=[];p.motion.destination=null;p.motion.room=nav.roomAt(p.motion).id;}changed();broadcast({t:'assist',id:p.id,active:false});}}
  function handle(c,m){if(!['chat.send','input.active','sports.hit'].includes(m.t))return false;
   const p=c.player;if(m.t==='input.active'){activity(p);return true;}
@@ -14,7 +14,7 @@ module.exports=function({getGame,G,broadcast,changed,save,clock=Date.now}){
    const now=clock();if(c.chatAt!=null&&now-c.chatAt<1200){c.reply({t:'err',msg:'慢一點，讓同事也說一句。'});return true;}
    if(typeof m.text!=='string')return true;
    const text=Array.from(m.text.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g,' ').trim()).slice(0,120).join('');if(!text)return true;
-   c.chatAt=now;message(p?.name||'主持台',text,'chat',p?.id||null,p?.rank||'host');return true;
+   c.chatAt=now;const msg=message(p?.name||'主持台',text,'chat',p?.id||null,p?.rank||'host');msg.bot=!!p?.bot;return true;
   }
   if(!p||p.kicked||p.expelPending)return true;const now=clock(),pos=p.motion;
   if(m.game==='volley'){

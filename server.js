@@ -117,7 +117,8 @@ function activePlayers() {
 // 依報到順序決定職級與隊伍
 function computeRoles() {
   sim.boardReady();
-  const list = activePlayers().filter((p,i) => i<3 || p.rank !== 'intern' || !game.rolesPublished);
+  for(const p of activePlayers().filter(p=>p.supportTeam)){p.rank='staff';p.team=p.supportTeam;p.title=G.TITLES.staff[p.team][0];}
+  const list = activePlayers().filter(p=>!p.supportTeam).filter((p,i) => i<3 || p.rank !== 'intern' || !game.rolesPublished);
   const n = list.length;
 
   const counts = { A: 0, B: 0, M: 0 };
@@ -238,6 +239,7 @@ function finalizeLaunch() {
     avgPrice: avg,
     price: market(game).price,
     finance: market(game),
+    gift: engagement.choose(),
     awards: {
       worker: best(p => stat(p.id).placed, p => p.rank === 'staff' || p.rank === 'intern'),
       micromanager: best(p => stat(p.id).stickers, p => ['manager','lead','chief'].includes(p.rank)),
@@ -272,6 +274,7 @@ function collectOutputs() {
     官方售價: game.launch && game.launch.price,
     市調平均願付: game.launch && game.launch.avgPrice,
     上市損益: game.launch && game.launch.finance,
+    認真體驗獎: game.launch?.gift ? {...game.launch.gift,姓名:nameOf(game.launch.gift.id)} : null,
     組織: ps.map(p => ({ 順序: p.joinIdx, 姓名: p.name, 職稱: p.title, 隊伍: p.team && G.TEAMS[p.team].name, 放置積木: stat(p.id).placed })),
     市調金句: Object.entries(game.poster.survey).map(([id, s]) => ({ 姓名: nameOf(id), 願付: s.price, 一句話: s.quote }))
   };
@@ -328,7 +331,7 @@ function safeName(s) { return String(s).replace(/[\\/:*?"<>|\s]/g, '_').slice(0,
 function publicState(includeHistory=false) {
   const ps = activePlayers().map(p => ({
     id: p.id, name: p.name, joinIdx: p.joinIdx, joinMs: p.joinMs, online: p.online || !!p.bot || !!p.aiControlled,
-    rank: p.rank, team: p.team, title: p.title, bot: !!p.bot, appearance:p.appearance, dancing:!!p.dancing, aiControlled:!!p.aiControlled, indoorBanUntil:p.indoorBanUntil||0, expelPending:!!p.expelPending, sportsTeam:campus.side(p),
+    rank: p.rank, team: p.team, title: p.title, bot: !!p.bot, supportTeam:p.supportTeam||null, appearance:p.appearance, dancing:!!p.dancing, aiControlled:!!p.aiControlled, indoorBanUntil:p.indoorBanUntil||0, expelPending:!!p.expelPending, sportsTeam:campus.side(p),
     owned: p.team === 'A' || p.team === 'B' ? ownedCount(p.team, p.id) : 0,
     status:sim.status(p), distraction:p.distraction||null, workstation:sim.station(p), atWorkstation:sim.atStation(p), arrival:p.arrival?{mode:p.arrival.mode,stage:p.arrival.stage}:null,
     motion: p.motion ? {...p.motion,path:undefined} : null, leisure: {score:p.leisure?.score||0,awaySeconds:Math.floor(p.leisure?.awaySeconds||0)},
@@ -572,7 +575,7 @@ setInterval(() => {
 
 function fx(obj) { broadcast(Object.assign({ t: 'fx', at: now() }, obj)); }
 // 給大螢幕辦公室實況用的活動訊號（只送主持人／辦公室畫面）
-function actHost(id, k, x) { broadcast({ t: 'act', id, k, x }, c => c.host || c.office); }
+function actHost(id, k, x) { engagement.record(game.players[id],k,k); broadcast({ t: 'act', id, k, x }, c => c.host || c.office); }
 
 // 計時器
 setInterval(() => {
@@ -617,9 +620,10 @@ function buildOpen() { return game.phase === 'build' && !game.timeUp && game.pau
 const appearances=require('./appearance.cjs')({players:()=>Object.values(game.players),clients:()=>clients});
 const recreation=require('./recreation.cjs')({externalSports:true,getGame:()=>game,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
 const sim = require('./simulation.cjs')({getGame:()=>game,G,broadcast,stateChanged:()=>broadcastState(false),save:scheduleSave,computeRoles,buildOpen,pending:()=>pendingOps,plan:toiletPlan});
+const engagement=require('./engagement.cjs')({getGame:()=>game});
 const campus=require('./campus.cjs')({getGame:()=>game,G,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
 const party=require('./party.cjs')({getGame:()=>game,clock:now,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
-setInterval(()=>{sim.tick();recreation.tick();campus.tick();party.tick();},50);
+setInterval(()=>{sim.tick();recreation.tick();campus.tick();party.tick();engagement.tick();},50);
 
 // ---------------------------------------------------------------- 訊息處理
 function onMessage(c, m) {
@@ -627,10 +631,10 @@ function onMessage(c, m) {
   const p = c.player;
   if(p&&!c.bot&&['party.vote','input.active','chat.send','sports.hit','office.move','work.goto','exhibit.inspect','board.vote','place','remove','sticker','banner','visit','react','mini.start','mini.input','coffee.join','coffee.step','dance','arcade.start','arcade.hit','core.inspect','brief','vote','bossPick','poster','price','survey','gvote','gpick'].includes(m.t))campus.activity(p);
   if(['chat.send','input.active','sports.hit'].includes(m.t)){if(rateOk(c))campus.handle({player:p,host:c.host,reply:msg=>send(c,msg),get chatAt(){return c.chatAt;},set chatAt(v){c.chatAt=v;}},m);return;}
-  if(m.t==='party.vote'){if(rateOk(c))party.handle(c,m);return;}
-  if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect','work.goto','exhibit.inspect'].includes(m.t)) { if(rateOk(c)) sim.handle({player:p,reply:msg=>send(c,msg)},m); return; }
+  if(m.t==='party.vote'){if(rateOk(c)){party.handle(c,m);if(p&&game.party?.active?.votes[p.id]!=null)engagement.record(p,'proposal',m.id);}return;}
+  if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect','work.goto','exhibit.inspect'].includes(m.t)) { if(rateOk(c)){sim.handle({player:p,reply:msg=>send(c,msg)},m);if(p&&m.t==='board.vote'&&game.board.votes[p.id])engagement.record(p,'election');if(p&&m.t==='exhibit.inspect'&&p.inspection?.phaseAt===game.phaseStartedAt)engagement.record(p,'exhibit');} return; }
 
-  if (['mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t)) {if(rateOk(c))recreation.handle({player:p,reply:msg=>send(c,msg)},m);return;}
+  if (['mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t)) {if(rateOk(c)){const before=JSON.stringify([p?.mini?.score,game.recreation?.coffee?.entries?.[p?.id]?.cups]);recreation.handle({player:p,reply:msg=>send(c,msg)},m);if(p&&before!==JSON.stringify([p.mini?.score,game.recreation?.coffee?.entries?.[p.id]?.cups]))engagement.record(p,'leisure',m.t);}return;}
   switch (m.t) {
     case 'appearance.roll': if(cooldown(c,'look',700)&&rateOk(c,2))send(c,{t:'appearance.offer',offer:appearances.offer(c)});return;
     case 'hello': {
@@ -657,7 +661,7 @@ function onMessage(c, m) {
       if (!rateOk(c, 5)) return;
       const appearance=appearances.choose(c,m);if(!appearance){send(c,{t:'err',msg:'造型已過期，請重新隨機產生三款'});send(c,{t:'appearance.offer',offer:appearances.offer(c)});return;}
       const id = rid(5);
-      const player = { id, appearance, lastActionAt:now(), token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, bot:!!c.bot, rank: null, team: null, title: '', kicked: false };
+      const player = { id, appearance, lastActionAt:now(), token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, bot:!!c.bot, supportTeam:c.supportTeam||null, rank: null, team: null, title: '', kicked: false };
       game.players[id] = player;
       c.player = player;
       if (game.rolesPublished) assignIntern(player);
@@ -688,7 +692,7 @@ function onMessage(c, m) {
         if (!nb) return;
       }
       b[k] = { c: col, by: p.id };
-      stat(p.id).placed++;
+      stat(p.id).placed++;engagement.record(p,'build',[m.x,m.y,m.z].join(','));
       pendingOps[p.team].push([1, x, y, z, col, p.id]);
       scheduleSave();
       return;
@@ -726,7 +730,7 @@ function onMessage(c, m) {
       const pos = Array.isArray(m.pos) ? m.pos.slice(0, 3).map(v => Math.max(-2, Math.min(18, +v || 0))) : [7, 4, 7];
       const s = { id: rid(4), team, pos, text, by: p.id, boss: isBoss, at: now() };
       game.stickers.push(s); if (game.stickers.length > 60) game.stickers.shift();
-      stat(p.id).stickers++;
+      stat(p.id).stickers++;engagement.record(p,'feedback');
       fx(Object.assign({ kind: 'sticker' }, s));
       return;
     }
@@ -792,6 +796,7 @@ function onMessage(c, m) {
       const isNew = !game.poster.survey[p.id];
       game.poster.survey[p.id] = { price, quote, at: now() };
       send(c, { t: 'you', you: youState(p) });
+      engagement.record(p,'survey');
       if (quote) fx({ kind: 'quote', by: p.id, quote, isNew }); else actHost(p.id, 'survey');
       stateDirty = true; scheduleSave();
       return;
@@ -911,6 +916,14 @@ function onMessage(c, m) {
       broadcast({ t: 'builds', builds: game.builds });
       broadcastState(true); scheduleSave(); return;
     }
+    case 'h.departmentAI': {
+      const teams=['A','B','M'].filter(team=>!activePlayers().some(p=>p.supportTeam===team)&&!bots.some(b=>!b.c.player&&b.c.supportTeam===team));
+      const slots=Math.max(0,50-activePlayers().length-bots.filter(b=>!b.c.player).length);
+      if(slots<teams.length){send(c,{t:'toast',msg:'名額不足，請先保留 '+teams.length+' 個位置；不會移除現有玩家'});return;}
+      for(const team of teams)addBots(1,team);
+      if(teams.length&&game.phase==='lobby'&&!game.lobby.open)game.lobby={open:true,openAt:now()+3000};
+      send(c,{t:'toast',msg:teams.length?'各處 AI 同仁已排隊報到；每處最多一名專屬補員':'各處已有 AI 補員'});broadcastState(true);scheduleSave();return;
+    }
     case 'h.fillPlayers':
     case 'h.bots': {
       const available=Math.max(0,50-activePlayers().length-bots.filter(b=>!b.c.player).length);
@@ -947,14 +960,14 @@ const BOT_POSTER = [['御座 Pro', '一坐就不想起來'], ['金馬桶 Max', '
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-function addBots(n) {
+function addBots(n,supportTeam=null) {
   const used = new Set(activePlayers().map(p => p.name));
   let i = 0;
   for (let k = 0; k < n; k++) {
     let name;
-    do { name = '🤖' + BOT_NAMES[(bots.length + i++) % BOT_NAMES.length] + (i > BOT_NAMES.length ? i : ''); } while (used.has(name) && i < 500);
+    do { name = BOT_NAMES[(bots.length + i++) % BOT_NAMES.length] + (i > BOT_NAMES.length ? i : ''); } while (used.has(name) && i < 500);
     used.add(name);
-    bots.push({ name, lazy: Math.random() < 0.22, c: { bot: true, open: true, player: null, host: false, bucket: 20, lastFill: now(), cd: {} }, joinAt: 0, done: {}, at: {} });
+    bots.push({ name, lazy: Math.random() < 0.22, c: { bot: true, supportTeam, open: true, player: null, host: false, bucket: 20, lastFill: now(), cd: {} }, joinAt: 0, done: {}, at: {} });
   }
 }
 function removeBots() {
@@ -1046,7 +1059,9 @@ function botBuild() {
 
 const assistants=new Map();
 function controllers(){return [...bots,...[...assistants.values()].filter(b=>b.c.player.aiControlled&&!b.c.player.kicked&&game.players[b.c.player.id]===b.c.player)];}
+let botChatAt=0,botChatCursor=0;
 function botTick() {
+ const chatNow=now();if(game.pausedRemaining==null&&game.phase!=='launch'&&chatNow-botChatAt>=12000){const crew=bots.filter(b=>b.c.player&&!b.c.player.kicked);if(crew.length){const b=crew[botChatCursor++%crew.length],p=b.c.player;botChatAt=chatNow;const pack=Party.pack({id:p.id,joinIdx:p.joinIdx,room:p.motion?.room,rank:p.rank,round:botChatCursor,category:botChatCursor%3===0?'all':'room'});botSend(b,{t:'chat.send',text:botChatCursor%5===0?pick(['👏','😂','🚽','☕']):pack[botChatCursor%pack.length]});}}
   for(const [id,b] of assistants)if(!b.c.player.aiControlled||b.c.player.kicked||game.players[id]!==b.c.player)assistants.delete(id);
   for(const p of activePlayers())if(!p.bot&&p.aiControlled&&!assistants.has(p.id))assistants.set(p.id,{assisted:true,lazy:false,c:{bot:true,open:true,player:p,host:false,bucket:20,lastFill:now(),cd:{}},done:{},at:{}});
   if (!controllers().length) return;
@@ -1246,7 +1261,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-party-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-finale-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {

@@ -33,7 +33,7 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
   m.destination=id;m.room='transit';p.leisure.round=null;return true;
  }
  function boardReady(){
-  const g=getGame();const ids=Object.values(g.players).filter(p=>!p.kicked).sort((a,b)=>a.joinIdx-b.joinIdx).slice(0,3).map(p=>p.id);
+  const g=getGame();const ids=Object.values(g.players).filter(p=>!p.kicked&&!p.supportTeam).sort((a,b)=>a.joinIdx-b.joinIdx).slice(0,3).map(p=>p.id);
   if(JSON.stringify(ids)!==JSON.stringify(g.board.members)){
    g.board={members:ids,votes:{},chair:null,round:g.board.round+1,tied:false};
    for(const p of Object.values(g.players))if(p.motion?.destination==='core'||p.motion?.room==='core')travel(p,'atrium');
