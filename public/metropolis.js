@@ -87,7 +87,7 @@ window.Office=class extends Base{
   this.logo(-9,46,-102.8,11);this.citySign('FOR THOSE WHO DARE','REPUBLIC OF GAMERS',P.cyan,-9,35,-102.5,22);
   this.logo(0,4.7,40.4,3.5);this.citySign('GOLDEN BOX','TONIGHT WE BUILD TOGETHER',P.amber,0,2.9,40.42,13);
   this.logo(111,24,-2.4,5);this.citySign('COOLING DISTRICT','THERMAL NETWORK / ONLINE',P.cyan,106,55,-70,16);
-  this.citySign('第一研發部','DESIGN / ENGINEERING',P.cyan,-26,3,-6.15,16);this.citySign('第二研發部','DESIGN / ENGINEERING',P.violet,26,3,-6.15,16);
+  this.citySign('第一研發處','DESIGN / ENGINEERING',P.cyan,-26,3,-6.15,16);this.citySign('第二研發處','DESIGN / ENGINEERING',P.violet,26,3,-6.15,16);
   this.citySign('金盒公司 · 一起蓋馬桶','DESIGN ATELIER / NIGHT SHIFT',P.amber,-30,3.8,40.35,16);
   this.citySign('INTELLIGENCE CORE','GB300 / VALIDATION ONLINE',P.cyan,30,3,-29.2,15);
   this.citySign('RECHARGE','COFFEE IN / IDEAS OUT',P.amber,-30,3,-29.2,14);this.citySign('PLAY BEYOND','TAKE A BREAK / FIND AN IDEA',P.violet,-9,3,-29.2,14);
