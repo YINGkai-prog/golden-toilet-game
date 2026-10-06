@@ -15,9 +15,9 @@
   // One layout drives architecture, seats, collision and server navigation.
   G.LAYOUT = 'arrival-villa-4';
   G.ROOMS = [
-    {id:'A',name:'第一研發部',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
-    {id:'B',name:'第二研發部',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
-    {id:'M',name:'行銷工作室',sub:'STUDIO / 12 SEATS',x:-26,z:30,w:28,d:18,color:'#bca0af',seats:12},
+    {id:'A',name:'第一研發處',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
+    {id:'B',name:'第二研發處',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
+    {id:'M',name:'行銷處',sub:'STUDIO / 12 SEATS',x:-26,z:30,w:28,d:18,color:'#bca0af',seats:12},
     {id:'board',name:'董事長室',sub:'CHAIRPERSON / EXHIBITION',x:26,z:30,w:28,d:18,color:'#b69d70'},
     {id:'lounge',name:'茶水間',sub:'COFFEE & CONVERSATION',x:-30,z:-22,w:20,d:16,color:'#b7a17c'},
     {id:'arcade',name:'遊戲室',sub:'SIDE QUEST',x:-9,z:-22,w:20,d:16,color:'#a18abd'},
@@ -76,7 +76,7 @@
   for(const x of [-10.5,10.5])for(const z of [-6,10,29,43])G.SOLIDS.push({x,z,w:.3,d:.3});
   G.PHASE_IDS = G.PHASES.map(p => p.id);
 
-  G.SHOW_PLAN = [{"id":"lobby","seconds":45,"title":"報到集合","task":"請大家用手機加入，選分身、輸入姓名。最快的三位就是董事！","say":"請掃玩家網址，今天一起蓋一座會賺錢的馬桶。"},{"id":"roles","seconds":30,"title":"董事互選","task":"請三位董事投給另一位董事；兩票當選，平票重投。","say":"三位董事不能投自己，現在決定今晚誰負責拍板。"},{"id":"brief","seconds":45,"title":"董事長開案","task":"請董事長選擇馬桶客群；向兩個研發部說明需求。","say":"同一道題，人類兩組對抗 AI。先看清楚要服務誰。"},{"id":"build","seconds":210,"title":"一起蓋馬桶","task":"請研發同仁按「導航到我的電腦」，抵達機台後一起建造。","say":"先底座、再座圈、最後水箱。主管少改一點，作品會快一點。"},{"id":"review","seconds":60,"title":"提案評選","task":"先展示三組作品，再請所有人投票；董事長最後拍板。","say":"親自去董事長室，看模型後投票得 2 分；遠端投票 1 分。"},{"id":"poster","seconds":120,"title":"海報與市調","task":"行銷設計海報；其他同仁填願付價格；董事長參考 AI 定價。","say":"讓這座馬桶賣得出去：名字、標語、售價，一個都不能少。"},{"id":"gallery","seconds":45,"title":"海報投票","task":"請全員選海報，不能投自己；董事長選官方版本與售價。","say":"看上方空拍機布幕，投給你最想買單的那張海報。"},{"id":"launch","seconds":45,"title":"上市揭曉","task":"公布馬桶、官方海報與獲利／虧損，邀請大家用表情慶祝。","say":"看看今晚是成功上市，還是把公司沖走了！謝謝大家一起共創。"}];
+  G.SHOW_PLAN = [{"id":"lobby","seconds":45,"title":"報到集合","task":"請大家用手機加入，選分身、輸入姓名。最快的三位就是董事！","say":"請掃玩家網址，今天一起蓋一座會賺錢的馬桶。"},{"id":"roles","seconds":30,"title":"董事互選","task":"請三位董事投給另一位董事；兩票當選，平票重投。","say":"三位董事不能投自己，現在決定今晚誰負責拍板。"},{"id":"brief","seconds":45,"title":"董事長開案","task":"請董事長選擇馬桶客群；向兩個研發處說明需求。","say":"同一道題，人類兩組對抗 AI。先看清楚要服務誰。"},{"id":"build","seconds":210,"title":"一起蓋馬桶","task":"請研發同仁按「導航到我的電腦」，抵達機台後一起建造。","say":"先底座、再座圈、最後水箱。主管少改一點，作品會快一點。"},{"id":"review","seconds":60,"title":"提案評選","task":"先展示三組作品，再請所有人投票；董事長最後拍板。","say":"親自去董事長室，看模型後投票得 2 分；遠端投票 1 分。"},{"id":"poster","seconds":120,"title":"海報與市調","task":"行銷設計海報；其他同仁填願付價格；董事長參考 AI 定價。","say":"讓這座馬桶賣得出去：名字、標語、售價，一個都不能少。"},{"id":"gallery","seconds":45,"title":"海報投票","task":"請全員選海報，不能投自己；董事長選官方版本與售價。","say":"看上方空拍機布幕，投給你最想買單的那張海報。"},{"id":"launch","seconds":45,"title":"上市揭曉","task":"公布馬桶、官方海報與獲利／虧損，邀請大家用表情慶祝。","say":"看看今晚是成功上市，還是把公司沖走了！謝謝大家一起共創。"}];
   G.DEFAULT_SETTINGS = { briefSec: 45, buildSec: 240, posterSec: 240 };
 
   // 積木空間（x 寬、y 高、z 深）
@@ -100,21 +100,22 @@
   ];
 
   G.TEAMS = {
-    A: { id: 'A', name: '第一研發部', plan: '方案 A', color: '#297c7b', soft: '#dcefeb' },
-    B: { id: 'B', name: '第二研發部', plan: '方案 B', color: '#3977bc', soft: '#dde8f5' },
+    A: { id: 'A', name: '第一研發處', plan: '方案 A', color: '#297c7b', soft: '#dcefeb' },
+    B: { id: 'B', name: '第二研發處', plan: '方案 B', color: '#3977bc', soft: '#dde8f5' },
     C: { id:'C',name:'自主 AI',plan:'方案 C',color:'#d2ef96',soft:'#293727' },
     M: { id: 'M', name: '行銷處',   plan: '行銷',   color: '#9566ac', soft: '#eee3f3' }
   };
 
   // 職級：budget = 同時可擁有的積木數
   G.RANKS = {
-    board: {name:'董事',level:5,budget:0,color:'#e7ce87',perks:['董事互選董事長；不能投自己','巡視公司、參與評選與市調']},
-    boss:    { name: '董事長', level: 5, budget: 0,  color: '#c88d2e',
+    board: {name:'董事',level:6,budget:0,color:'#e7ce87',perks:['董事互選董事長；不能投自己','巡視公司、參與評選與市調']},
+    boss:    { name: '董事長', level: 7, budget: 0,  color: '#c88d2e',
                perks: ['不用蓋，負責拍板', '可以「巡視」任一隊，讓全隊螢幕跳出老闆', '可以貼金色「老闆的關心」', '決定開案方向、上市方案、官方海報'] },
-    lead:    { name: '處長',   level: 4, budget: 6,  color: '#7a4f9a',
+    lead:    { name: '處長',   level: 5, budget: 6,  color: '#7a4f9a',
                perks: ['只有 6 塊積木（主管不用親自動手）', '可以拆任何隊員的積木', '可以貼意見貼紙', '每 45 秒可對全隊發一次「方向調整」'] },
-    manager: { name: '經理',   level: 3, budget: 15, color: '#3977bc',
+    manager: { name: '部長',   level: 4, budget: 15, color: '#3977bc',
                perks: ['15 塊積木', '可以拆任何隊員的積木', '可以貼意見貼紙指點江山'] },
+    chief: {name:'課長',level:3,budget:25,color:'#4b9c85',perks:['25 塊積木，帶著大家動手蓋','可貼意見貼紙；只能拆自己的積木']},
     staff:   { name: '基層',   level: 2, budget: 40, color: '#297c7b',
                perks: ['40 塊積木，主力就是你', '只能拆自己的積木', '主管的貼紙…看看就好'] },
     intern:  { name: '實習生', level: 1, budget: 30, color: '#6b7e82',
@@ -122,12 +123,13 @@
   };
 
   G.TITLES = {
-    lead: { A: '第一研發部 處長', B: '第二研發部 處長', M: '行銷處 處長' },
+    lead: { A: '第一研發處 處長', B: '第二研發處 處長', M: '行銷處 處長' },
     manager: {
-      A: ['ID 經理', '機構經理', '散熱經理', '電子經理', '聲學經理', '韌體經理'],
-      B: ['ID 經理', '機構經理', '散熱經理', '電子經理', '聲學經理', '韌體經理'],
-      M: ['品牌經理', '產品行銷經理', '通路經理']
+      A: ['ID 部長', '機構部長', '散熱部長', '電子部長', '聲學部長', '韌體部長'],
+      B: ['ID 部長', '機構部長', '散熱部長', '電子部長', '聲學部長', '韌體部長'],
+      M: ['品牌部長', '產品行銷處長', '通路部長']
     },
+    chief:{A:['設計課長','工程課長'],B:['設計課長','工程課長'],M:['文案課長','創意課長']},
     staff: {
       A: ['ID 設計師', 'CMF 設計師', '機構工程師', '電子工程師', '散熱工程師', '聲學工程師', '韌體工程師', '品質驗證工程師', '製造工程師', '採購專員'],
       B: ['ID 設計師', 'CMF 設計師', '機構工程師', '電子工程師', '散熱工程師', '聲學工程師', '韌體工程師', '品質驗證工程師', '製造工程師', '採購專員'],

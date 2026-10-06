@@ -25,6 +25,7 @@ function loadShared() {
 }
 const G = loadShared();
 const market=require('./market.cjs');
+const Party=require('./public/party-shared.js');
 
 const CLOUD = !!(process.env.RENDER || process.env.CLOUD || process.env.HOST_KEY);
 const argPort = /^\d+$/.test(process.argv[2] || '') ? process.argv[2] : null;
@@ -118,10 +119,10 @@ function computeRoles() {
   sim.boardReady();
   const list = activePlayers().filter((p,i) => i<3 || p.rank !== 'intern' || !game.rolesPublished);
   const n = list.length;
-  const mgrCount = Math.max(0, Math.round((n - 6) * 0.15));
+
   const counts = { A: 0, B: 0, M: 0 };
   const weight = { A: 2, B: 2, M: 1 };
-  const titleIdx = { manager: { A: 0, B: 0, M: 0 }, staff: { A: 0, B: 0, M: 0 } };
+  const titleIdx = { chief:{A:0,B:0,M:0}, manager: { A: 0, B: 0, M: 0 }, staff: { A: 0, B: 0, M: 0 } };
   const pickTeam = () => {
     let best = 'A', bestScore = Infinity;
     for (const t of ['A', 'B', 'M']) {
@@ -136,10 +137,9 @@ function computeRoles() {
       const t = ['A', 'B', 'M'][i - 3];
       p.rank = 'lead'; p.team = t; p.title = G.TITLES.lead[t]; counts[t]++; return;
     }
-    const isMgr = i < 6 + mgrCount;
-    const t = pickTeam();
+    const t = i<18 ? ['A','B','M'][(i-6)%3] : pickTeam();
     counts[t]++;
-    const r = isMgr ? 'manager' : 'staff';
+    const r = Party.rankAt(i);
     const pool = G.TITLES[r][t];
     p.rank = r; p.team = t; p.title = pool[titleIdx[r][t]++ % pool.length];
   });
@@ -240,7 +240,9 @@ function finalizeLaunch() {
     finance: market(game),
     awards: {
       worker: best(p => stat(p.id).placed, p => p.rank === 'staff' || p.rank === 'intern'),
-      micromanager: best(p => stat(p.id).stickers, p => p.rank === 'manager' || p.rank === 'lead'),
+      micromanager: best(p => stat(p.id).stickers, p => ['manager','lead','chief'].includes(p.rank)),
+      wanderer: best(p=>p.leisure?.awaySeconds||0),
+      gamer: best(p=>p.leisure?.score||0),
       rich,
       cheer: best(p => stat(p.id).reactions)
     },
@@ -346,6 +348,7 @@ function publicState(includeHistory=false) {
     settings: game.settings,
     lobby: game.lobby,
     rolesPublished: game.rolesPublished,
+    party: party.summary(),
     players: ps,
     connected: clients.size,
     testPlayers: {active:ps.filter(p=>p.bot).length,pending:bots.filter(b=>!b.c.player).length,target:50},
@@ -615,14 +618,16 @@ const appearances=require('./appearance.cjs')({players:()=>Object.values(game.pl
 const recreation=require('./recreation.cjs')({externalSports:true,getGame:()=>game,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
 const sim = require('./simulation.cjs')({getGame:()=>game,G,broadcast,stateChanged:()=>broadcastState(false),save:scheduleSave,computeRoles,buildOpen,pending:()=>pendingOps,plan:toiletPlan});
 const campus=require('./campus.cjs')({getGame:()=>game,G,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
-setInterval(()=>{sim.tick();recreation.tick();campus.tick();},50);
+const party=require('./party.cjs')({getGame:()=>game,clock:now,broadcast,changed:()=>broadcastState(false),save:scheduleSave});
+setInterval(()=>{sim.tick();recreation.tick();campus.tick();party.tick();},50);
 
 // ---------------------------------------------------------------- 訊息處理
 function onMessage(c, m) {
   if (!m || typeof m.t !== 'string') return;
   const p = c.player;
-  if(p&&!c.bot&&['input.active','chat.send','sports.hit','office.move','work.goto','exhibit.inspect','board.vote','place','remove','sticker','banner','visit','react','mini.start','mini.input','coffee.join','coffee.step','dance','arcade.start','arcade.hit','core.inspect','brief','vote','bossPick','poster','price','survey','gvote','gpick'].includes(m.t))campus.activity(p);
+  if(p&&!c.bot&&['party.vote','input.active','chat.send','sports.hit','office.move','work.goto','exhibit.inspect','board.vote','place','remove','sticker','banner','visit','react','mini.start','mini.input','coffee.join','coffee.step','dance','arcade.start','arcade.hit','core.inspect','brief','vote','bossPick','poster','price','survey','gvote','gpick'].includes(m.t))campus.activity(p);
   if(['chat.send','input.active','sports.hit'].includes(m.t)){if(rateOk(c))campus.handle({player:p,host:c.host,reply:msg=>send(c,msg),get chatAt(){return c.chatAt;},set chatAt(v){c.chatAt=v;}},m);return;}
+  if(m.t==='party.vote'){if(rateOk(c))party.handle(c,m);return;}
   if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect','work.goto','exhibit.inspect'].includes(m.t)) { if(rateOk(c)) sim.handle({player:p,reply:msg=>send(c,msg)},m); return; }
 
   if (['mini.start','mini.input','coffee.join','coffee.step','dance'].includes(m.t)) {if(rateOk(c))recreation.handle({player:p,reply:msg=>send(c,msg)},m);return;}
@@ -714,7 +719,7 @@ function onMessage(c, m) {
       if (!p || game.phase !== 'build') return;
       const team = m.team === 'B' ? 'B' : 'A';
       const isBoss = p.rank === 'boss';
-      if (!(isBoss || p.rank === 'manager' || p.rank === 'lead')) return;
+      if (!(isBoss || p.rank === 'manager' || p.rank === 'lead' || p.rank==='chief')) return;
       if (!cooldown(c, 'stk', isBoss ? 3000 : 2500)) { send(c, { t: 'err', msg: '貼紙冷卻中…（指導也要喘口氣）', code: 'cd' }); return; }
       const text = clampStr(m.text, G.LIMITS.sticker);
       if (!text) return;
@@ -842,7 +847,7 @@ function onMessage(c, m) {
   switch (m.t) {
     case 'h.intro': {
       if(game.phase!=='lobby'||game.show?.active){send(c,{t:'err',msg:'前導影片請在正式遊戲開始前播放。'});return;}
-      game.intro={startedAt:now(),endsAt:now()+60000};broadcastState(true);scheduleSave();return;
+      game.intro={startedAt:now(),endsAt:now()+40000};broadcastState(true);scheduleSave();return;
     }
     case 'h.stopIntro': {game.intro=null;broadcastState(true);scheduleSave();return;}
     case 'h.startShow': {
@@ -1241,7 +1246,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'host-show-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-party-2026.10.06', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {

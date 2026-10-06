@@ -478,7 +478,7 @@
         <div class="side">
           <div class="card">
             <h4>${boss ? '👑 董事長巡視中' : '📈 行銷處：市場觀察'}</h4>
-            <div class="teamtabs"><button class="A" data-t="A" aria-pressed="true">第一研發部<br><small id="ca"></small></button><button class="B" data-t="B">第二研發部<br><small id="cb"></small></button></div>
+            <div class="teamtabs"><button class="A" data-t="A" aria-pressed="true">第一研發處<br><small id="ca"></small></button><button class="B" data-t="B">第二研發處<br><small id="cb"></small></button></div>
           </div>
           <div class="card">${briefMini()}</div>
           ${boss ? `<div class="card" style="background:var(--gold-soft)"><button class="gold" id="visit" style="width:100%;font-size:16px">👀 巡視這一隊</button><div class="small muted" style="margin-top:6px">全隊螢幕會跳出「董事長來巡視了！」</div></div>` : ''}
