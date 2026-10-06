@@ -208,7 +208,7 @@
     root.innerHTML = `
       <div class="lobby">
         <div class="hero card">
-          <div class="eyebrow">GOLDEN BOX INC. · 全員研發中</div>
+          <div class="eyebrow">GOLDEN TOILET INC. · 全員研發中</div>
           <h1>今天，你在公司<br>是什麼角色？</h1><div class="company-tagline">50 位同仁 · 2 個提案 · 1 座金馬桶</div>
           <p>${late ? '遊戲已經開始了！現在加入會成為<b>約聘實習生</b>，一樣可以一起蓋馬桶。' : '越早報到，職位越高。<b>第一個報到的人就是董事長</b>，最後幾位…就是基層主力。'}</p>
           <div class="join-row"><input id="nm" type="text" maxlength="12" placeholder="你的名字或綽號" autocomplete="off"><button id="go" class="gold">報到！</button></div>

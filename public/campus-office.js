@@ -25,7 +25,7 @@ window.Office=class extends Base{
  projection(builds,s){if(builds)this.projectionBuilds=builds;if(s){this.projectionState=s;for(const p of s.poster?.posters||[]){const key=p.author+':'+p.v;if(p.hasImg&&!this.posterImages.has(key)){const img=new Image();img.onload=()=>{this.pageDirty=true;};img.src='/poster/'+encodeURIComponent(p.author)+'.jpg?v='+p.v+'&g='+s.gameId;this.posterImages.set(key,img);}}}this.pageDirty=true;}
  drawPage(p){const s=this.projectionState,c=p.canvas.getContext('2d'),team=p.team,accent=GAME.TEAMS[team].color,blocks=this.projectionBuilds[team]||{},count=Object.keys(blocks).length;
   rect(c,0,0,1536,960,'#0a1b25');rect(c,0,0,1536,86,'#122c36');rect(c,0,85,1536,3,accent);
-  font(c,27,'#dce9e4','◇ GOLDEN BOX',38,54,600);font(c,20,'#8ca9ac','COMPANY WEEKLY / NIGHT SHIFT',365,53);font(c,20,accent,'● LIVE · '+(s?.players.length||0)+' CREW',1200,53);
+  font(c,27,'#dce9e4','◇ GOLDEN TOILET',38,54,600);font(c,20,'#8ca9ac','COMPANY WEEKLY / NIGHT SHIFT',365,53);font(c,20,accent,'● LIVE · '+(s?.players.length||0)+' CREW',1200,53);
   font(c,92,accent,team==='C'?'03':'0'+(team==='A'?1:2),43,211,600);font(c,42,'#e3eee6',GAME.TEAMS[team].name,185,170,600);font(c,21,'#91b5b9',team==='C'?'AUTONOMOUS / GB300 LAB':'HUMAN COLLABORATION / DESIGN IN PUBLIC',188,211);
   const phase=GAME.PHASES.find(v=>v.id===s?.phase);font(c,22,'#c5d8d5','當前階段  /  '+(phase?.long||'等待同仁報到'),43,270);
   rect(c,40,297,1040,570,'#102934');rect(c,1110,297,385,570,'#142b34');
@@ -67,7 +67,7 @@ window.Office=class extends Base{
    sphere('#ab8b46',side*.53,1.44,0,.18);sphere('#27383e',side*.64,1.13,.08,.2,.7,1.4,.8);sphere('#d6ad55',side*.69,.89,.13,.15);sphere('#4c5d60',side*.26,.54,0,.19,.8,1.5,1);sphere('#cfa956',side*.27,.27,.14,.2,1,.65,1.4);
   }
   sphere('#d5b266',0,1.8,.53,.17,1,1,.38);this.dynamicBox(body,'#20333a',0,1.7,.56,.37,.08,.04);
-  const label=new T.Sprite(new T.SpriteMaterial({map:this.text('ROG OMNI / 歡迎加班','#efdb98',30),depthWrite:false}));label.position.y=3.7;label.scale.set(4.2,.79,1);o.add(label);this.omniLabel=label;for(const child of body.children)child.position.y-=1.55;body.position.y=1.55;
+  const label=new T.Sprite(new T.SpriteMaterial({map:this.text('OMNI / 歡迎加班','#efdb98',30),depthWrite:false}));label.position.y=3.7;label.scale.set(4.2,.79,1);o.add(label);this.omniLabel=label;for(const child of body.children)child.position.y-=1.55;body.position.y=1.55;
  }
  boardTexture(w=768,h=160){const cv=canvas(w,h),tx=new T.CanvasTexture(cv);tx.encoding=T.sRGBEncoding;return{canvas:cv,texture:tx};}
  makeScoreboards(){this.soccerBoard=this.boardTexture();const m=new T.Mesh(new T.PlaneGeometry(16,3.33),new T.MeshBasicMaterial({map:this.soccerBoard.texture,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));m.rotation.x=-Math.PI/2;m.position.set(0,.27,5.8);this.scene.add(m);
