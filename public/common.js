@@ -515,7 +515,7 @@
     }
 
     _frame(t) {
-      if (!this.el.isConnected||document.hidden||this.el.getBoundingClientRect().bottom<0||this.el.getBoundingClientRect().top>innerHeight) return;
+      if (!this.el.isConnected||!this.el.getClientRects().length||!this.el.clientWidth||!this.el.clientHeight||document.hidden||this.el.getBoundingClientRect().bottom<0||this.el.getBoundingClientRect().top>innerHeight) return;
       if (this.needRebuild) this._rebuild();
       let animate = false;
       if (this.opts.autoRotate && (!this.lastInteract || t - this.lastInteract > 4000)) { this.yaw += 0.004; animate = true; }

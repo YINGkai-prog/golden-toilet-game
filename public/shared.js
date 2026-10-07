@@ -13,7 +13,7 @@
     { id: 'launch',  name: '發表會', long: '上市發表會',     hint: '金馬桶正式上市' }
   ];
   // One layout drives architecture, seats, collision and server navigation.
-  G.LAYOUT = 'play-villa-5';
+  G.LAYOUT = 'smooth-villa-6';
   G.ROOMS = [
     {id:'A',name:'第一研發處',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
     {id:'B',name:'第二研發處',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
@@ -50,7 +50,7 @@
   for(const d of G.DESKS)G.SOLIDS.push({x:d.x,z:d.z,w:3.05,d:1.6});
   // Equipment islands and furnishings; the same footprints are rendered below.
   G.FIXTURES = [
-    ...[-36,-30,-24].map(x=>({type:'coffee',x,z:-27,w:4,d:2})),
+    {type:'coffee',x:-30,z:-27,w:9,d:2},
     ...[-36,-25].map(x=>({type:'sofa',x,z:-20,w:5,d:3})),
     ...[-16,-11,-6].map(x=>({type:'arcade',x,z:-27,w:2.3,d:2})),
     {type:'pinball',x:-11,z:-20,w:3,d:4},
@@ -67,7 +67,7 @@
   G.SOLIDS.push(...G.FIXTURES.map(f=>({x:f.x,z:f.z,w:f.w,d:f.d})));
   for(const x of [47,58])for(const z of [-32,-18,-4])G.SOLIDS.push({x,z,w:4,d:4});
   for(const x of [-51,-38,-24,-10,5,21,37,53])for(const z of [-53,-40])G.SOLIDS.push({x,z,w:.9,d:.9});
-  G.SOLIDS.push({x:-30,z:-16,w:2.4,d:1.6});
+  G.SOLIDS.push({x:-30,z:-27,w:9,d:1.6});
   for(const x of [-36,-25])G.SOLIDS.push({x,z:-18,w:2,d:2});
   for(const x of [-36,-16,16,36])G.SOLIDS.push({x,z:-6.8,w:3,d:1});
   for(const z of [-30,39])for(let x=-40;x<=40;x+=8)if(z!==39||x!==0)G.SOLIDS.push({x,z,w:.4,d:.4});
