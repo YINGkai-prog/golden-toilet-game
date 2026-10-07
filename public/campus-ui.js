@@ -21,7 +21,7 @@ window.CampusUI=class{
   if(this.gameId!==s.gameId){this.gameId=s.gameId;this.messages=[];this.log.replaceChildren();}
   for(const m of s.campus?.chat||[])this.message(m);this.updateStatus();
  }
- event(m){if(!m)return;const e=document.createElement('div');e.textContent=m.text;this.effects.append(e);while(this.effects.children.length>3)this.effects.firstChild.remove();setTimeout(()=>e.remove(),4500);}
+ event(m){if(m?.text)UIFlow.notice(m.text);}
  message(m){if(!m||m.kind==='event')return;if(this.messages.some(x=>x.id===m.id))return;this.messages.push(m);if(this.messages.length>60){this.messages.shift();this.log.firstChild?.remove();}
   const nearBottom=this.log.scrollHeight-this.log.scrollTop-this.log.clientHeight<50,line=document.createElement('div');line.className='chat-message '+(m.kind==='event'?'event':'');const author=document.createElement('b'),body=document.createElement('span');line.dataset.rank=['boss','board','lead','manager','chief','host'].includes(m.rank)?m.rank:'staff';author.textContent=(m.bot?'AI · ':'')+m.name+' '+(GAME.RANKS[m.rank]?.name||'主持')+' ';body.textContent=m.text;line.append(author,body);line.title=new Date(m.at).toLocaleTimeString();this.log.append(line);if(nearBottom)this.log.scrollTop=this.log.scrollHeight;
  }
