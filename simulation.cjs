@@ -12,8 +12,8 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
   if(!p.leisure)p.leisure={score:0,round:null,awaySeconds:0};
  }
  function travel(p,id,point){
-  init(p);let r=room(id);const m=p.motion;const banned=p.indoorBanUntil>Date.now();if(p.expelPending)return false;
-  if(!r||id==='core'&&p.rank!=='boss'||workflow.locked(p))return false;
+  init(p);let r=room(id);const m=p.motion;const banned=p.indoorBanUntil>Date.now();if(p.expelPending||p.play?.carId||p.play?.arrestUntil>Date.now()||p.play?.toilet?.collapsed&&p.play.toilet.phase!=='done'&&id!=='wc')return false;
+  if(!r||id==='core'&&p.rank!=='boss'||workflow.locked(p)&&id!==m.room)return false;
   if(point&&Number.isFinite(point.x)&&Number.isFinite(point.z)&&r.base){r=nav.roomAt(point);id=r.id;if(id==='core'&&p.rank!=='boss')return false;}
   if(p.arrival&&p.arrival.stage!=='done'){p.arrival.next={id,point};return true;}
   const occupied=new Set(Object.values(getGame().players).filter(q=>q!==p&&!q.kicked&&(q.motion?.room===id||q.motion?.destination===id)).map(q=>q.motion.slot));
@@ -87,7 +87,7 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
   let moving=false;
   for(const p of Object.values(g.players)){
    if(p.kicked)continue;init(p);const m=p.motion;
-   if(m.path.length){
+   if(m.path.length&&!p.play?.carId&&!(p.play?.arrestUntil>now)){
     moving=true;const [x,z]=m.path[0],d=Math.hypot(x-m.x,z-m.z),step=dt*workflow.speed(p);
     if(traffic.advance(p,{x,z},step)){m.path.shift();if(!m.path.length){if(!workflow.arrived(p)){m.room=m.destination;m.destination=null;workflow.enter(p,m.room);const next=p.arrival?.next;if(next){delete p.arrival.next;p.arrival.distributed=true;travel(p,next.id,next.point);}else if(p.arrival?.stage==='done'&&!p.arrival.distributed){p.arrival.distributed=true;travel(p,home(p));}}stateChanged();}}
    }
@@ -119,5 +119,5 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
   if(g.ai.progress>=100&&g.ai.cycles%4===0){const key=Object.keys(g.builds.C)[g.ai.cycles%Object.keys(g.builds.C).length];if(key){const b=g.builds.C[key];b.c=b.c===5?6:5;pending().C.push([1,...key.split(',').map(Number),b.c,'ai-core']);}}
   stateChanged();save();
  }
- return {handle,tick,init,travel,home,boardReady,...workflow};
+ return {nav,handle,tick,init,travel,home,boardReady,...workflow};
 };
