@@ -4,3 +4,8 @@
 
 /* Avoid expensive full-window glass compositing on integrated/mobile GPUs. */
 body:has(#office[data-quality="auto"]) .public-chat,body:has(#office[data-quality="auto"]) .kite,body:has(#office[data-quality="auto"]) .play-actions{backdrop-filter:none;-webkit-backdrop-filter:none}
+
+.golf-panel{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);width:min(430px,calc(100vw - 24px));z-index:95;padding:18px;border:1px solid #b6d59a;border-radius:14px;background:#102a2bf5;box-shadow:0 12px 50px #0009}.golf-panel[hidden]{display:none}.golf-panel header{display:flex;justify-content:space-between;align-items:center}.golf-panel small{display:block;margin-top:12px;color:#b6cdbe}.golf-swing{width:100%;margin-top:14px;min-height:48px}.golf-meter{position:relative;height:27px;background:#07191b;border:1px solid #527164;border-radius:7px;overflow:hidden}.golf-zone{position:absolute;top:0;bottom:0;width:8%;background:#dce87b88;border-left:2px solid #e9f397;border-right:2px solid #e9f397;z-index:2}.golf-meter i{display:block;height:100%;background:linear-gradient(90deg,#528e82,#cceba7)}@media(max-width:760px){.golf-panel{bottom:80px;padding:12px}.golf-panel p{margin:8px 0}}
+
+@media(max-width:760px){body:not([data-phone-view="scene"]) .golf-panel{display:none}.golf-panel small{font-size:11px}}
+.golf-leaders{margin-top:8px;width:100%}
