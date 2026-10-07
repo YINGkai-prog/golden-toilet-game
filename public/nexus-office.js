@@ -170,7 +170,6 @@ class Office {
    this.box('#aebfa9',x,h,z,w+.4,.2,d+.4).castShadow=false;
   }
   // Parked electric cars and street lamps establish the villa's urban scale.
-  for(const x of [-31,-20,20,31]){this.box('#d6dfd6',x,.68,56,4.7,1.1,2.1);this.box('#7c9593',x,1.43,56,2.6,.6,1.85);for(const dx of [-1.5,1.5])for(const dz of [-1,1])this.ball('#586b65',x+dx,.36,56+dz,.42,.42,.19);}
   for(const x of [-57,-35,35,57]){this.cylinder('#869b8e',x,3,57,.09,6);this.box('#f2f5e8',x+.5,6,57,1.3,.17,.4,undefined,true);}
   this.beacon=new T.Mesh(new T.RingGeometry(.65,.82,32),new T.MeshBasicMaterial({color:'#317d67',side:T.DoubleSide,transparent:true}));this.beacon.rotation.x=-Math.PI/2;this.beacon.visible=false;this.scene.add(this.beacon);
  }
