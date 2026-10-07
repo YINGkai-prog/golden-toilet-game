@@ -1,7 +1,7 @@
 'use strict';
 // Server-authoritative, swept-circle traffic. A move never intersects another actor.
 module.exports=({getGame,nav,clock=Date.now})=>{
- const radius=p=>p.arrival?.stage==='road'&&['car','scooter','horse','bicycle'].includes(p.arrival.mode)?1.45:.63;
+ const radius=p=>p.play?.carId?1.8:p.arrival?.stage==='road'&&['car','scooter','horse','bicycle'].includes(p.arrival.mode)?1.45:.63;
  const peers=p=>Object.values(getGame().players).filter(q=>q!==p&&!q.kicked&&q.motion);
  function clear(p,to){const from=p.motion,dx=to.x-from.x,dz=to.z-from.z,l=dx*dx+dz*dz;
   if(!nav.walkable(to,p.rank==='boss'||nav.insideCore(from),p.indoorBanUntil>clock())||!nav.clear(from,to,p.rank==='boss'||nav.insideCore(from),p.indoorBanUntil>clock()))return false;
