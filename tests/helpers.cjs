@@ -12,7 +12,7 @@ async function start() {
   fs.copyFileSync(path.join(ROOT, 'server.js'), path.join(tmp, 'server.js'));
   fs.copyFileSync(path.join(ROOT,'simulation.cjs'),path.join(tmp,'simulation.cjs'));
   fs.copyFileSync(path.join(ROOT,'navigation.cjs'),path.join(tmp,'navigation.cjs'));
-  for(const file of ['golf.cjs','play.cjs','brief.cjs','appearance.cjs','recreation.cjs','campus.cjs','workflow.cjs','traffic.cjs','market.cjs','party.cjs','engagement.cjs'])fs.copyFileSync(path.join(ROOT,file),path.join(tmp,file));
+  for(const file of ['honors.cjs','golf.cjs','play.cjs','brief.cjs','appearance.cjs','recreation.cjs','campus.cjs','workflow.cjs','traffic.cjs','market.cjs','party.cjs','engagement.cjs'])fs.copyFileSync(path.join(ROOT,file),path.join(tmp,file));
   fs.cpSync(path.join(ROOT, 'public'), path.join(tmp, 'public'), { recursive: true });
   const port = await new Promise(resolve => { const s = net.createServer(); s.listen(0,'127.0.0.1',()=>{ const p=s.address().port;s.close(()=>resolve(p)); }); });
   // A file log also works in Windows sandboxes that cannot create Node pipes.
