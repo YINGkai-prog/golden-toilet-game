@@ -9,3 +9,5 @@ body:has(#office[data-quality="auto"]) .public-chat,body:has(#office[data-qualit
 
 @media(max-width:760px){body:not([data-phone-view="scene"]) .golf-panel{display:none}.golf-panel small{font-size:11px}}
 .golf-leaders{margin-top:8px;width:100%}
+
+.kite .funny-nickname{position:static;display:block;margin-top:1px;font-size:7px;line-height:10px;padding:0;color:#ecd396;background:transparent;text-align:left}.kite:has(.funny-nickname:not([hidden])){height:31px}.kite .funny-nickname[hidden]{display:none}
