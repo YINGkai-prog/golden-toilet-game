@@ -332,7 +332,9 @@ function safeName(s) { return String(s).replace(/[\\/:*?"<>|\s]/g, '_').slice(0,
 
 // ---------------------------------------------------------------- 對外狀態
 function publicState(includeHistory=false) {
+  const honors = require('./honors.cjs')(game);
   const ps = activePlayers().map(p => ({
+    honor: honors[p.id] || '',
     id: p.id, name: p.name, joinIdx: p.joinIdx, joinMs: p.joinMs, online: p.online || !!p.bot || !!p.aiControlled,
     rank: p.rank, team: p.team, title: p.title, bot: !!p.bot, supportTeam:p.supportTeam||null, appearance:p.appearance, dancing:!!p.dancing, aiControlled:!!p.aiControlled, indoorBanUntil:p.indoorBanUntil||0, expelPending:!!p.expelPending, sportsTeam:campus.side(p),
     owned: p.team === 'A' || p.team === 'B' ? ownedCount(p.team, p.id) : 0,
@@ -1268,7 +1270,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-golf-2026.10.07', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-cues-2026.10.07', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
