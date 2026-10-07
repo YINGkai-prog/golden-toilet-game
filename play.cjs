@@ -1,7 +1,7 @@
 'use strict';
 // All flower sizes, toilet queues, driving and collisions are authoritative.
 module.exports=({getGame,G,sim,broadcast,changed,save,message,clock=Date.now,random=Math.random})=>{
- const ps=()=>Object.values(getGame().players).filter(p=>!p.kicked),dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),sink={x:-30,z:-18},stalls=[5,9,13].map(x=>({x,z:-24.4}));
+ const ps=()=>Object.values(getGame().players).filter(p=>!p.kicked),dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),sink={x:-30,z:-24.5},stalls=[5,9,13].map(x=>({x,z:-24.4}));
  const props=[...[-33,-21,21,33].map(x=>({id:'patio:'+x+':49',kind:'table',x,z:49,r:2.3})),...[47,58].flatMap(x=>[-32,-18,-4].map(z=>({id:'tree:'+x+':'+z,kind:'tree',x,z,r:1.8}))),...[-51,-38,-24,-10,5,21,37,53].flatMap(x=>[-53,-40].map(z=>({id:'tree:'+x+':'+z,kind:'tree',x,z,r:1.3})))];
  function state(){const g=getGame();return g.play||(g.play={flowers:{},queue:[],cars:[{id:'car-1',x:-20,z:57,angle:Math.PI/2,driver:null,path:[]},{id:'car-2',x:20,z:57,angle:Math.PI/2,driver:null,path:[]}],props:{}});}
  function person(p){if(!p.play||p.play.gameId!==getGame().gameId)p.play={gameId:getGame().gameId,toilet:{phase:'waiting',taps:0},nickname:'',cuffUntil:0};return p.play;}

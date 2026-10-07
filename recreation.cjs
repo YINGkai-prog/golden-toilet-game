@@ -74,7 +74,7 @@ module.exports=function({getGame,broadcast,changed,save,clock=Date.now,externalS
     if(b.y>103){r.lives--;if(r.lives<=0){r.expires=now;break;}Object.assign(b,{x:50,y:16,vx:(r.lives%2?1:-1)*24,vy:0});}
    }
   }
-  if(now-frameAt>=100){frameAt=now;broadcast({t:'leisure.frame',s:summary()});for(const p of ps)if(p.mini?.type==='pinball')round(p);}
+  if(now-frameAt>=200){frameAt=now;broadcast({t:'leisure.frame',s:summary()});for(const p of ps)if(p.mini?.type==='pinball')round(p);}
  }
  return{handle,tick,summary};
 };

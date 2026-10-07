@@ -454,14 +454,14 @@ function sendRaw(c, payload, op = 0x1) {
 }
 function send(c, obj) {
   if (c.bot) return;
-  const str = JSON.stringify(obj);
+  const str = JSON.stringify(obj,(_k,v)=>typeof v==='number'&&!Number.isInteger(v)?Math.round(v*100)/100:v);
   if (c.poll) pollPush(c, str); else sendRaw(c, Buffer.from(str));
 }
 function broadcast(obj, filter) {
   const str = JSON.stringify(obj);
   let buf = null;
   for (const c of clients) {
-    if (filter && !filter(c)) continue;
+    if (filter && !filter(c)) continue;if(!c.poll&&c.socket?.writableLength>131072&&['state','play.frame','campus.frame','leisure.frame'].includes(obj.t))continue;
     if (c.poll) pollPush(c, str); else sendRaw(c, buf || (buf = Buffer.from(str)));
   }
 }
@@ -505,7 +505,7 @@ function newPollClient(req) {
   return c;
 }
 function pollPush(c, str) {
-  c.queue.push(str);
+  const type=JSON.parse(str).t;if(['state','play.frame','campus.frame','leisure.frame'].includes(type)){const at=c.queue.findIndex(x=>JSON.parse(x).t===type);if(at>=0)c.queue.splice(at,1);}c.queue.push(str);
   if (c.queue.length > 4000) { dropClient(c); return; }
   if (c.waiter && !c.flushing) { c.flushing = true; setImmediate(() => { c.flushing = false; pollFlush(c); }); }
 }
@@ -564,7 +564,7 @@ function broadcastState(force) {
   stateDirty = false;
   broadcast({ t: 'state', s: publicState() });
 }
-setInterval(() => { if (stateDirty) broadcastState(true); }, 400);
+setInterval(() => { if (stateDirty) broadcastState(true); }, 800);
 
 // 積木異動批次廣播
 let pendingOps = { A: [], B: [], C: [] };
@@ -1106,7 +1106,7 @@ function botTick() {
     }
     if(p.motion?.room==='lounge'){
       const r=game.recreation?.coffee,e=r?.entries[p.id];
-      if(p.joinIdx%4===0){if(Math.hypot(p.motion.x+30,p.motion.z+18)>4.2)botSend(b,{t:'office.move',room:'lounge',x:-30,z:-18});else botSend(b,{t:'flower.plant'});}
+      if(p.joinIdx%4===0){if(Math.hypot(p.motion.x+30,p.motion.z+24.5)>4.2)botSend(b,{t:'office.move',room:'lounge',x:-30,z:-24.5});else botSend(b,{t:'flower.plant'});}
       else if(p.joinIdx%3===0){if(!p.dancing)botSend(b,{t:'dance'});}
       else if(!r||r.finished||!e)botSend(b,{t:'coffee.join'});
       else if(!e.forfeited&&t>=e.ready&&t>=r.starts)botSend(b,{t:'coffee.step',round:r.id,step:e.step});
@@ -1114,7 +1114,7 @@ function botTick() {
     if(p.motion?.room==='courtyard'&&t>=(b.nextKick||0)){const ball=game.recreation.football;botSend(b,{t:'office.move',room:'courtyard',x:ball.x,z:ball.z});b.nextKick=t+2200;}
     if(p.motion?.room==='pool'&&t>=(b.nextVolley||0)){const ball=game.campus.volley;botSend(b,{t:'office.move',room:'pool',x:ball.x,z:ball.z});botSend(b,{t:'sports.hit',game:'volley'});b.nextVolley=t+1300;}
     if((p.motion?.room==='road'||b.carApproach)&&p.joinIdx%5===0){const car=play.summary().cars.find(c=>!c.driver&&(!b.carApproach||c.id===b.carApproach));if(car){b.carApproach=car.id;if(Math.hypot(p.motion.x-car.x,p.motion.z-car.z)>4.5)botSend(b,{t:'office.move',room:'grounds',x:car.x,z:car.z+3});else{botSend(b,{t:'car.enter',carId:car.id});play.person(p).botDriveEnd=t+12000;if(p.play.carId)b.carApproach=null;}}}
-    if(p.motion?.room==='arcade'&&p.joinIdx%5===0){if(Math.hypot(p.motion.x+16,p.motion.z+18)>3.6)botSend(b,{t:'office.move',room:'arcade',x:-16,z:-16});else if(!p.pressRound){botSend(b,{t:'pressure.start'});b.pressMargin=rnd(300,1600);}else if(p.pressRound.ends-t<(b.pressMargin||1000))botSend(b,{t:'pressure.stop',round:p.pressRound.round});}
+    if(p.motion?.room==='arcade'&&p.joinIdx%5===0){if(Math.hypot(p.motion.x+16,p.motion.z+24.5)>3.6)botSend(b,{t:'office.move',room:'arcade',x:-16,z:-16});else if(!p.pressRound){botSend(b,{t:'pressure.start'});b.pressMargin=rnd(300,1600);}else if(p.pressRound.ends-t<(b.pressMargin||1000))botSend(b,{t:'pressure.stop',round:p.pressRound.round});}
     if(p.motion?.room==='arcade'&&p.joinIdx%5!==0&&p.joinIdx%2){
       const r=p.mini;
       if(!r||r.expires<t)botSend(b,{t:'mini.start',game:p.joinIdx%4===1?'darts':'pinball'});
@@ -1268,7 +1268,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-play-2026.10.07', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-smooth-2026.10.07', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
