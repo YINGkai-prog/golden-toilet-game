@@ -13,7 +13,7 @@
     { id: 'launch',  name: '發表會', long: '上市發表會',     hint: '金馬桶正式上市' }
   ];
   // One layout drives architecture, seats, collision and server navigation.
-  G.LAYOUT = 'smooth-villa-6';
+  G.LAYOUT = 'golf-villa-8';
   G.ROOMS = [
     {id:'A',name:'第一研發處',sub:'LAB A / 24 SEATS',x:-26,z:5,w:28,d:26,color:'#63b6ac',seats:24},
     {id:'B',name:'第二研發處',sub:'LAB B / 24 SEATS',x:26,z:5,w:28,d:26,color:'#739cc2',seats:24},
@@ -31,7 +31,8 @@
     {id:'road',name:'園區馬路',sub:'FOREST AVENUE',x:0,z:65,w:124,d:12,color:'#899aa0',outdoor:true},
     {id:'forest',name:'城市森林',sub:'FOREST TRAIL',x:0,z:-48,w:122,d:16,color:'#729675',outdoor:true},
     {id:'core',name:'神秘機房',sub:'C / CHAIRPERSON ONLY',x:29,z:-22,w:24,d:16,color:'#89a688',private:true},
-    {id:'grounds',name:'園區漫步',sub:'EXPLORE THE CAMPUS',x:0,z:7,w:126,d:130,color:'#879a79',outdoor:true,base:true}
+    {id:'golf',name:'高爾夫練習場',sub:'LONG DRIVE / FIVE TEES',x:-126,z:0,w:40,d:104,color:'#94b77c',outdoor:true},
+    {id:'grounds',name:'園區漫步',sub:'EXPLORE THE CAMPUS',x:-43,z:7,w:212,d:130,color:'#879a79',outdoor:true,base:true}
   ];
   G.DESKS = [];
   for(const id of ['A','B','M']) {
@@ -47,6 +48,10 @@
       for(const half of [-1,1])G.WALLS.push({x:r.x+half*(r.w/4+1),z:r.z+side*r.d/2,w:r.w/2-2,d:.32});
     }
   }
+  // Boardroom front is a continuous directory wall; enter through the west side.
+  G.WALLS=G.WALLS.filter(w=>!(w.x===12&&w.z===30)&&!(w.z===39&&w.x>12));
+  G.WALLS.push({x:26,z:39,w:28,d:.32},{x:12,z:27,w:.32,d:12},{x:12,z:38,w:.32,d:2});
+  G.SOLIDS.push({id:'directory',x:26,z:40.56,w:24.25,d:.5});
   for(const d of G.DESKS)G.SOLIDS.push({x:d.x,z:d.z,w:3.05,d:1.6});
   // Equipment islands and furnishings; the same footprints are rendered below.
   G.FIXTURES = [
@@ -74,6 +79,10 @@
   for(const x of [-40,40])for(let z=-23;z<39;z+=8)G.SOLIDS.push({x,z,w:.4,d:.4});
   for(const z of [-11,19.5])for(const x of [-39,-13,13,39])G.SOLIDS.push({x,z,w:.3,d:.3});
   for(const x of [-10.5,10.5])for(const z of [-6,10,29,43])G.SOLIDS.push({x,z,w:.3,d:.3});
+  G.GOLF_TEES=Array.from({length:5},(_,i)=>({x:-142+i*8,z:45}));
+  G.DESTRUCTIBLES=[{id:'directory',kind:'directory',indoor:true,x:26,z:40.56,w:24.25,d:.5},...G.WALLS.map((r,i)=>Object.assign(r,{id:'wall:'+i,kind:'wall',indoor:true})),...G.DESKS.map((r,i)=>({id:'desk:'+i,kind:'desk',indoor:true,x:r.x,z:r.z,w:3.5,d:4})),...G.FIXTURES.map((r,i)=>({id:r.type==='patio'?'patio:'+r.x+':'+r.z:'fixture:'+i,kind:r.type,indoor:Math.abs(r.x)<42&&r.z<42,x:r.x,z:r.z,w:r.w,d:r.d})),...[47,58].flatMap(x=>[-32,-18,-4].map(z=>({id:'tree:'+x+':'+z,kind:'tree',x,z,w:2,d:2}))),...[-51,-38,-24,-10,5,21,37,53].flatMap(x=>[-53,-40].map(z=>({id:'tree:'+x+':'+z,kind:'tree',x,z,w:2,d:2}))),...[34,46].map(z=>({id:'tree:-55:'+z,kind:'tree',x:-55,z,w:2,d:2}))];
+  {let seed=73;const rand=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);for(const [count,span,near,road]of [[310,960,80,12],[110,390,81,13]])for(let i=0;i<count;i++){const x=(rand()-.5)*span,z=(rand()-.5)*span;if(Math.abs(x)<68&&z>-(near-20)&&z<near||Math.abs(Math.abs(x)-92)<(count===310?10:11)||[65,-90,170,-210].some(a=>Math.abs(z-a)<road))continue;rand();if(x>=-150&&x<=63&&z>=-58&&z<=73&&!(x< -104&&x> -149&&z>-56&&z<54))G.DESTRUCTIBLES.push({id:'tree:'+x+':'+z,kind:'tree',x,z,w:2,d:2});}}
+  for(const r of G.SOLIDS){const p=G.DESTRUCTIBLES.find(p=>Math.abs(p.x-r.x)<.1&&Math.abs(p.z-r.z)<.1);if(p)r.id=p.id;}
   G.PHASE_IDS = G.PHASES.map(p => p.id);
 
   G.SHOW_PLAN = [{"id":"lobby","seconds":45,"title":"報到集合","task":"請大家用手機加入，選分身、輸入姓名。最快的三位就是董事！","say":"請掃玩家網址，今天一起蓋一座會賺錢的馬桶。"},{"id":"roles","seconds":30,"title":"董事互選","task":"請三位董事投給另一位董事；兩票當選，平票重投。","say":"三位董事不能投自己，現在決定今晚誰負責拍板。"},{"id":"brief","seconds":45,"title":"公開開案決策","task":"處長與部長投票 30 秒，董事長拍板 10 秒，最後 5 秒公布。逾時由 AI 補上。","say":"主管先投，董事長再決定。三面布幕公開票況，大家一起見證！"},{"id":"build","seconds":210,"title":"一起蓋馬桶","task":"請研發同仁按「導航到我的電腦」，抵達機台後一起建造。","say":"先底座、再座圈、最後水箱。主管少改一點，作品會快一點。"},{"id":"review","seconds":60,"title":"提案評選","task":"先展示三組作品，再請所有人投票；董事長最後拍板。","say":"親自去董事長室，看模型後投票得 2 分；遠端投票 1 分。"},{"id":"poster","seconds":120,"title":"海報與市調","task":"行銷設計海報；其他同仁填願付價格；董事長參考 AI 定價。","say":"讓這座馬桶賣得出去：名字、標語、售價，一個都不能少。"},{"id":"gallery","seconds":45,"title":"海報投票","task":"請全員選海報，不能投自己；董事長選官方版本與售價。","say":"看上方空拍機布幕，投給你最想買單的那張海報。"},{"id":"launch","seconds":45,"title":"上市揭曉","task":"公布馬桶、官方海報與獲利／虧損，邀請大家用表情慶祝。","say":"看看今晚是成功上市，還是把公司沖走了！謝謝大家一起共創。"}];

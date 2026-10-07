@@ -20,11 +20,10 @@ class Office {
  batchActors(){
   for(const b of this.actorBatches||[]){this.scene.remove(b.mesh);b.mesh.dispose?.();}
   const groups=new Map();
-  for(const a of this.actors.values())a.group.traverse(m=>{
-   if(!m.isMesh||!m.userData.crewDecoration&&![this.boxGeo,this.ballGeo,this.cylGeo].includes(m.geometry))return;
-   m.visible=false;m.castShadow=false;const key=m.geometry.uuid+(m.material.emissiveIntensity?'glow:'+m.material.uuid:m.material.isMeshBasicMaterial?'basic:'+m.material.uuid:'solid');
-   if(!groups.has(key))groups.set(key,[]);groups.get(key).push({part:m,actor:a});
-  });
+  for(const a of this.actors.values()){
+   if(!a.renderParts){a.renderParts=[];a.group.traverse(m=>{if(m.isMesh&&(m.userData.crewDecoration||[this.boxGeo,this.ballGeo,this.cylGeo].includes(m.geometry)))a.renderParts.push(m);});for(const m of a.renderParts){m.updateMatrix();m.userData.renderParent=m.parent;m.removeFromParent();}}
+   for(const m of a.renderParts){m.visible=false;m.castShadow=false;const key=m.geometry.uuid+(m.material.emissiveIntensity?'glow:'+m.material.uuid:m.material.isMeshBasicMaterial?'basic:'+m.material.uuid:'solid');if(!groups.has(key))groups.set(key,[]);groups.get(key).push({part:m,actor:a});}
+  }
   this.actorBatches=[];
   for(const items of groups.values()){
    const first=items[0].part,mesh=new T.InstancedMesh(first.geometry,first.material.emissiveIntensity||first.material.isMeshBasicMaterial?first.material:this.mat('#ffffff'),items.length);if(!first.material.emissiveIntensity)items.forEach(({part},i)=>mesh.setColorAt(i,part.material.color));
@@ -104,7 +103,7 @@ class Office {
    for(let x=-350;x<350;x+=12)this.box('#dce0ce',x,.04,z,4,.025,.15).castShadow=false;
   }
   for(let z=60;z<=70;z+=1.4)this.box('#e4e7da',0,.07,z,6,.035,.6);
-  this.box('#e5e9dc',0,.04,56,8,.08,8);
+  // Removed entrance ramp overlapping the sidewalk and zebra crossing.
   // Plinth, generous galleries, and the open-air courtyard.
   this.box('#c8d3c8',0,-.13,5,83,.32,71);this.box('#e5ece2',0,.04,5,82,.08,70);
   this.box('#d7dcca',0,.06,49,86,.08,9);
@@ -120,7 +119,7 @@ class Office {
    const hit=new T.Mesh(new T.PlaneGeometry(r.w,r.d),new T.MeshBasicMaterial({visible:false}));hit.rotation.x=-Math.PI/2;hit.position.set(r.x,r.base?.115:.14,r.z);hit.userData.room=r.id;this.scene.add(hit);this.hits.push(hit);
   }
   // Cutaway villa: white plaster, low partitions, clerestory frames, wide doors.
-  for(const w of G.WALLS){this.box('#fafbf4',w.x,.82,w.z,w.w,1.5,w.d);this.box('#b9cbbf',w.x,1.6,w.z,w.w+.04,.09,w.d+.04);}
+  for(const w of G.WALLS){    const start=this.scene.children.length;this.box('#fafbf4',w.x,.82,w.z,w.w,1.5,w.d);this.box('#b9cbbf',w.x,1.6,w.z,w.w+.04,.09,w.d+.04);this.captureProp?.(w.id,w.x,w.z,start);}
   for(let z of [-30,39]){
    this.box('#f5f7ed',0,4.5,z,82,.45,.75);
    for(let x=-40;x<=40;x+=8){if(z===39&&x===0)continue;this.box('#eff4e9',x,2.2,z,.4,4.4,.4);if(z===-30)this.box('#afc6b9',x+3.5,3.1,z,6.1,.035,.08);}
@@ -190,7 +189,7 @@ class Office {
  bind(){let down=null,dist=0,pointers=new Map();const cv=this.renderer.domElement;cv.style.touchAction='none';cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);down={x:e.clientX,y:e.clientY,pan:e.button===2||e.shiftKey};this.follow=false;dist=0;});cv.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;let old=pointers.get(e.pointerId);if(pointers.size===2){let other=[...pointers.entries()].find(([id])=>id!==e.pointerId)[1];let before=Math.hypot(old[0]-other[0],old[1]-other[1]),after=Math.hypot(e.clientX-other[0],e.clientY-other[1]);this.goal.radius=Math.max(22,Math.min(285,this.goal.radius+(before-after)*.08));dist=99;}else if(down){const dx=e.clientX-down.x,dy=e.clientY-down.y;dist+=Math.hypot(dx,dy);if(down.pan){const speed=this.radius*.0014;this.desiredFocus.x=Math.max(-130,Math.min(130,this.desiredFocus.x+(-Math.cos(this.theta)*dx-Math.sin(this.theta)*dy)*speed));this.desiredFocus.z=Math.max(-130,Math.min(130,this.desiredFocus.z+(Math.sin(this.theta)*dx-Math.cos(this.theta)*dy)*speed));}else{this.goal.theta-=dx*.005;this.goal.phi=Math.max(.015,Math.min(1.3,this.goal.phi+dy*.004));}down.x=e.clientX;down.y=e.clientY;}pointers.set(e.pointerId,[e.clientX,e.clientY]);});cv.addEventListener('pointerup',e=>{pointers.delete(e.pointerId);if(down&&!down.pan&&dist<7){const rect=cv.getBoundingClientRect();this.pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);this.ray.setFromCamera(this.pointer,this.camera);let hits=this.ray.intersectObjects(this.hits);if(hits[0])this.select(hits[0].object.userData.room,hits[0].point);}down=null;});cv.addEventListener('pointercancel',e=>{pointers.delete(e.pointerId);down=null;});cv.addEventListener('wheel',e=>{e.preventDefault();this.goal.radius=Math.max(22,Math.min(285,this.goal.radius+e.deltaY*.04));},{passive:false});cv.addEventListener('contextmenu',e=>e.preventDefault());}
  loop(time){const dt=Math.min(.05,(time-this.last)/1000);this.last=time;const ease=1-Math.exp(-dt*10);if(this.follow&&this.actors.has(this.me))this.desiredFocus.copy(this.actors.get(this.me).group.position);this.focus.lerp(this.desiredFocus,ease);for(const k of ['theta','phi','radius'])this[k]+=(this.goal[k]-this[k])*ease;this.camera.position.set(this.focus.x+Math.sin(this.theta)*Math.cos(this.phi)*this.radius*Math.max(1,1.15/this.camera.aspect),this.focus.y+Math.sin(this.phi)*this.radius*Math.max(1,1.15/this.camera.aspect),this.focus.z+Math.cos(this.theta)*Math.cos(this.phi)*this.radius*Math.max(1,1.15/this.camera.aspect));this.camera.lookAt(this.focus);
   for(const a of this.actors.values()){const delta=a.target.clone().sub(a.group.position),moving=delta.length()>.045;a.group.position.lerp(a.target,1-Math.exp(-dt*13));if(moving){let target=Math.atan2(delta.x,delta.z),diff=Math.atan2(Math.sin(target-a.group.rotation.y),Math.cos(target-a.group.rotation.y));a.group.rotation.y+=diff*ease;}if(!moving){const pose=(['A','B','M','arcade'].includes(a.p.motion?.room)?Math.PI:a.p.motion?.room==='board'?-1:0)+(a.seed%5-2)*.2;const turn=Math.atan2(Math.sin(pose-a.group.rotation.y),Math.cos(pose-a.group.rotation.y));a.group.rotation.y+=turn*ease*.15;}const t=time*.01+a.seed,stride=moving?.62:0;a.limbs.forEach((limb,i)=>limb.rotation.x=Math.sin(t+(i<2?0:Math.PI)+(i%2?Math.PI:0))*stride);a.body.position.y=this.reduced?0:(moving?Math.abs(Math.sin(t))*.09:Math.sin(time*.002+a.seed)*.025);if(!moving&&['arcade','lounge','smoking','terrace'].includes(a.p.motion?.room))a.limbs[0].rotation.x=-.7+Math.sin(t)*.15;this.animateActor?.(a,time,moving);}
-  if(this.actorBatchDirty)this.batchActors();for(const a of this.actors.values())a.group.updateMatrixWorld(true);const hidden=new T.Matrix4().makeScale(0,0,0);for(const b of this.actorBatches||[]){b.items.forEach(({part,actor},i)=>b.mesh.setMatrixAt(i,actor.group.visible&&part.userData.show!==false?part.matrixWorld:hidden));b.mesh.instanceMatrix.needsUpdate=true;}if(this.beacon.visible){let age=(time-this.beaconAt)/1000;this.beacon.scale.setScalar(1+Math.sin(age*5)*.15);this.beacon.material.opacity=Math.max(0,1-age/4);if(age>4)this.beacon.visible=false;}if(!document.hidden&&!this.paused)this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(this.loop);
+  if(this.actorBatchDirty)this.batchActors();for(const a of this.actors.values())a.group.updateMatrixWorld(true);const hidden=new T.Matrix4().makeScale(0,0,0);for(const b of this.actorBatches||[]){b.items.forEach(({part,actor},i)=>b.mesh.setMatrixAt(i,actor.group.visible&&part.userData.show!==false?(this.crewMatrix||=new T.Matrix4()).multiplyMatrices(part.userData.renderParent.matrixWorld,part.matrix):hidden));b.mesh.instanceMatrix.needsUpdate=true;}if(this.beacon.visible){let age=(time-this.beaconAt)/1000;this.beacon.scale.setScalar(1+Math.sin(age*5)*.15);this.beacon.material.opacity=Math.max(0,1-age/4);if(age>4)this.beacon.visible=false;}if(!document.hidden&&!this.paused)this.renderer.render(this.scene,this.camera);this.frame=requestAnimationFrame(this.loop);
  }
 }
 window.Office=Office;

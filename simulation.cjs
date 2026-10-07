@@ -67,7 +67,7 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
    c.reply({t:'core.data',ai:{...g.ai,plan:undefined},strategy:'依開案題目切換材料、掃描兩隊進度、加速填補結構並持續優化；不需人類操作。'});return true;
   }
   if(p.motion.room!=='arcade'){fail(c,'抵達遊戲室才能玩；離開房間即中止回合');return true;}
-  if(!['build','poster','lobby','roles'].includes(g.phase)){fail(c,'目前階段遊戲室暫停計分');return true;}
+  if(!['build','poster','lobby','roles','launch'].includes(g.phase)){fail(c,'目前階段遊戲室暫停計分');return true;}
   if(m.t==='arcade.start'){
    if(p.leisure.round&&Date.now()<p.leisure.round.expires){fail(c,'目前回合尚未結束');return true;}
    const type=m.game==='memory'?'memory':'pulse';
