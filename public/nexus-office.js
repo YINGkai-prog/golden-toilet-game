@@ -5,17 +5,17 @@ class Office {
   this.el=el;this.onMove=onMove;this.actors=new Map();this.me=null;this.follow=false;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   this.scene=new T.Scene();this.scene.background=new T.Color('#07171e');this.scene.fog=new T.Fog('#07171e',130,530);
   this.camera=new T.PerspectiveCamera(38,1,.3,1000);this.focus=new T.Vector3(0,0,8);this.desiredFocus=this.focus.clone();this.theta=.38;this.phi=.92;this.radius=152;this.goal={theta:.38,phi:.92,radius:152};
-  this.renderer=new T.WebGLRenderer({antialias:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.autoUpdate=false;this.renderer.shadowMap.needsUpdate=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;this.renderer.outputEncoding=T.sRGBEncoding;this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.05;
+  this.renderer=new T.WebGLRenderer({antialias:true,powerPreference:"high-performance"});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.autoUpdate=false;this.renderer.shadowMap.needsUpdate=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;this.renderer.outputEncoding=T.sRGBEncoding;this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.05;
   this.renderer.domElement.setAttribute('aria-label','可互動的 3D 辦公室，點擊房間移動角色，拖曳旋轉');el.appendChild(this.renderer.domElement);
   this.scene.add(new T.HemisphereLight(0x6996b5,0x142820,.65));const sun=new T.DirectionalLight(0x9bbfde,.5);sun.position.set(-45,90,35);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-80,right:80,top:80,bottom:-80,near:1,far:220});sun.shadow.bias=-.0005;this.scene.add(sun);const rim=new T.DirectionalLight(0x8bdfe6,.35);rim.position.set(20,15,-20);this.scene.add(rim);
-  this.materials=new Map();this.boxGeo=new T.BoxGeometry(1,1,1);this.ballGeo=new T.SphereGeometry(1,20,14);this.cylGeo=new T.CylinderGeometry(1,1,1,16);this.hits=[];this.world();this.batchStatic();
+  this.materials=new Map();this.boxGeo=new T.BoxGeometry(1,1,1);this.ballGeo=new T.SphereGeometry(1,12,8);this.farBallGeo=new T.SphereGeometry(1,8,6);this.cylGeo=new T.CylinderGeometry(1,1,1,16);this.hits=[];this.world();this.batchStatic();
   this.ray=new T.Raycaster();this.pointer=new T.Vector2();this.bind();this.resize=new ResizeObserver(()=>{let w=el.clientWidth,h=el.clientHeight;if(w&&h){this.maxRatio=this.renderScale?this.renderScale(w,h):Math.max(1,Math.min(devicePixelRatio,2));this.renderer.setPixelRatio(this.maxRatio);this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}});this.resize.observe(el);this.last=performance.now();this.loop=this.loop.bind(this);this.frame=requestAnimationFrame(this.loop);
  }
  batchStatic(){
   this.scene.updateMatrixWorld(true);const groups=new Map();const all=[];
-  this.scene.traverse(m=>{if(!m.isMesh||![this.boxGeo,this.ballGeo,this.cylGeo].includes(m.geometry)||m===this.coreCover)return;all.push(m);});
-  for(const m of all){const key=m.geometry.uuid+m.material.uuid+m.castShadow;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(m);}
-  for(const list of groups.values()){const mesh=new T.InstancedMesh(list[0].geometry,list[0].material,list.length);list.forEach((m,i)=>{mesh.setMatrixAt(i,m.matrixWorld);m.parent.remove(m);});mesh.castShadow=list[0].castShadow;mesh.receiveShadow=true;this.scene.add(mesh);}
+  this.scene.traverse(m=>{if(!m.isMesh||![this.boxGeo,this.ballGeo,this.farBallGeo,this.cylGeo].includes(m.geometry)||m===this.coreCover)return;all.push(m);});
+  for(const m of all){const plain=m.material.isMeshStandardMaterial&&!m.material.map&&!m.material.transparent;const key=m.geometry.uuid+(plain?(m.material.emissiveIntensity?'emissive':'plain'):m.material.uuid)+m.castShadow;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(m);}
+  for(const list of groups.values()){const first=list[0].material,plain=first.isMeshStandardMaterial&&!first.map&&!first.transparent,material=plain?(first.emissiveIntensity?new T.MeshBasicMaterial({color:'#ffffff'}):new T.MeshStandardMaterial({color:'#ffffff',roughness:.7,metalness:.07})):first;const mesh=new T.InstancedMesh(list[0].geometry,material,list.length);list.forEach((m,i)=>{mesh.setMatrixAt(i,m.matrixWorld);if(plain)mesh.setColorAt(i,m.material.color);m.parent.remove(m);});mesh.castShadow=list[0].castShadow;mesh.receiveShadow=true;this.scene.add(mesh);}
  }
  batchActors(){
   for(const b of this.actorBatches||[]){this.scene.remove(b.mesh);b.mesh.dispose?.();}
@@ -57,7 +57,7 @@ class Office {
  tree(x,z,size=1,far=false){
   const part=(m)=>{if(far)m.castShadow=false;return m;};
   part(this.cylinder('#8a8c76',x,2.2*size,z,.27*size,4.4*size));
-  for(let i=0;i<3;i++){const a=i*2.5+x;part(this.ball(i===1?'#183e35':'#244d3f',x+Math.cos(a)*1.15*size,(4.7+i*.8)*size,z+Math.sin(a)*size,2.7*size,2.3*size,2.5*size));}
+  for(let i=0;i<3;i++){const a=i*2.5+x;part(this.mesh(far?this.farBallGeo:this.ballGeo,i===1?'#183e35':'#244d3f',x+Math.cos(a)*1.15*size,(4.7+i*.8)*size,z+Math.sin(a)*size,2.7*size,2.3*size,2.5*size));}
  }
  fixture(f){
   const {x,z}=f,p=f.type==='rack'?this.core:undefined;
@@ -181,7 +181,7 @@ class Office {
   this.scene.add(group);let a={group,body,limbs,sprite,halo,p,target:new T.Vector3(p.motion?.x||0,0,p.motion?.z||0),seed:p.joinIdx*2};group.position.copy(a.target);this.actors.set(p.id,a);this.actorBatchDirty=true;return a;
  }
  update(s,me){this.me=me;const isBoss=s.players.find(p=>p.id===me)?.rank==='boss';this.core.visible=true;this.coreCover.visible=true;for(const [id,a] of this.actors)if(!s.players.some(p=>p.id===id)){this.scene.remove(a.group);a.sprite.material.map.dispose();a.sprite.material.dispose();this.actors.delete(id);this.actorBatchDirty=true;}for(const p of s.players){let a=this.actors.get(p.id)||this.avatar(p);a.p=p;if(p.motion)a.target.set(p.motion.x,0,p.motion.z);if(a.halo.userData.crewDecoration)a.halo.userData.show=p.id===me;else a.halo.visible=p.id===me;a.sprite.visible=p.id===me||s.players.length<12;a.group.visible=true;}}
- motion(players){for(const p of players){const a=this.actors.get(p.id);if(a){a.target.set(p.x,0,p.z);a.p.motion=p;if(p.status)a.p.status=p.status;}}}
+ motion(players){for(const p of players){const a=this.actors.get(p.id);if(a){a.target.set(p.x,0,p.z);a.p.motion={...a.p.motion,...p};if(p.status)a.p.status=p.status;}}}
  home(){this.follow=false;this.goal={theta:.38,phi:.92,radius:152};this.desiredFocus.set(0,0,8);}
  campus(){this.follow=false;this.goal={theta:.2,phi:.59,radius:280};this.desiredFocus.set(0,0,-18);}
  inspect(id){const r=G.ROOMS.find(r=>r.id===id);if(!r)return;this.follow=false;this.desiredFocus.set(r.x,0,r.z);this.goal.radius=r.outdoor?75:48;this.goal.phi=.95;}

@@ -2,7 +2,7 @@
 (()=>{'use strict';const T=THREE,Base=window.Office;
 window.Office=class extends Base{
  world(){super.world();this.roomSigns=[];
-  const rooms=[['A',-26,5.9,-10.6,14],['B',26,5.9,-10.6,14],['M',-26,6.65,39.65,13],['board',26,6.65,39.65,13],['lounge',-30,6.7,-29.4,12],['arcade',-9,6.7,-29.4,12],['wc',9,6.7,-29.4,9],['core',29,6.7,-29.4,14]];
+  const rooms=[['A',-26,5.9,-10.6,14],['B',26,5.9,-10.6,14],['M',-26,6.65,39.65,13],['board',26,8.0,40.7,13],['lounge',-30,6.7,-29.4,12],['arcade',-9,6.7,-29.4,12],['wc',9,6.7,-29.4,9],['core',29,6.7,-29.4,14]];
   for(const[id,x,y,z,w]of rooms){const r=GAME.ROOMS.find(r=>r.id===id);const m=this.citySign(r.name,r.sub,r.color,x,y,z,w);m.userData.room=id;this.roomSigns.push(m);}
   this.entranceSign=this.citySign('金桶公司','GOLDEN TOILET / NIGHT SHIFT','#e8d2a0',0,7.05,39.7,17);
   for(const x of[-7.7,7.7])this.box('#bba477',x,5,39.5,.1,.6,.12);

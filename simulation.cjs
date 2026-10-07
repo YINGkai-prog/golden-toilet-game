@@ -35,7 +35,7 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
  function boardReady(){
   const g=getGame();const ids=Object.values(g.players).filter(p=>!p.kicked&&!p.supportTeam).sort((a,b)=>a.joinIdx-b.joinIdx).slice(0,3).map(p=>p.id);
   if(JSON.stringify(ids)!==JSON.stringify(g.board.members)){
-   g.board={members:ids,votes:{},chair:null,round:g.board.round+1,tied:false};
+   g.board={members:ids,votes:{},chair:null,round:g.board.round+1,tied:false,deadline:ids.length===3?Date.now()+30000:null};
    for(const p of Object.values(g.players))if(p.motion?.destination==='core'||p.motion?.room==='core')travel(p,'atrium');
   }
  }
@@ -81,9 +81,11 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
   }
   c.reply({t:'arcade.round',round:p.leisure.round,total:p.leisure.score});stateChanged();save();return true;
  }
- let previous=Date.now(),motionAt=0,aiAt=0,saveAt=0;
+ let previous=Date.now(),motionAt=0,aiAt=0,saveAt=0,fullMotionAt=0;const motionKeys=new Map();
+ function electionTick(now){const g=getGame(),b=g.board;if(b.chair||b.members.length!==3)return;if(!b.deadline)b.deadline=now+30000;if(g.pausedRemaining!=null){b.deadline+=Math.max(0,now-previous);return;}if(now<b.deadline)return;const candidates=b.members.filter(id=>g.players[id]&&!g.players[id].kicked);if(!candidates.length)return;b.chair=candidates[require('node:crypto').randomInt(candidates.length)];b.auto=true;b.electedAt=now;computeRoles();broadcast({t:'fx',kind:'elected',name:g.players[b.chair].name,auto:true});stateChanged();save();}
+
  function tick(){
-  const g=getGame(),now=Date.now(),dt=Math.min(.25,(now-previous)/1000);previous=now;
+  const g=getGame(),now=Date.now(),dt=Math.min(.25,(now-previous)/1000);electionTick(now);previous=now;
   let moving=false;
   for(const p of Object.values(g.players)){
    if(p.kicked)continue;init(p);const m=p.motion;
@@ -93,7 +95,7 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
    }
    if(buildOpen()&&(p.online||p.bot)&&['A','B'].includes(p.team)&&m.room!==home(p))p.leisure.awaySeconds+=dt;
   }
-  if(now-motionAt>100){motionAt=now;broadcast({t:'motion',players:Object.values(g.players).filter(p=>!p.kicked).map(p=>({id:p.id,...p.motion,path:undefined,status:workflow.status(p)}))});}
+  if(now-motionAt>100){motionAt=now;const full=now-fullMotionAt>5000;if(full)fullMotionAt=now;const players=[];for(const p of Object.values(g.players).filter(p=>!p.kicked)){const m={id:p.id,x:p.motion.x,z:p.motion.z,room:p.motion.room,destination:p.motion.destination};m.x=Math.round(m.x*100)/100;m.z=Math.round(m.z*100)/100;const key=JSON.stringify(m);if(full||motionKeys.get(p.id)!==key){players.push(m);motionKeys.set(p.id,key);}}if(players.length)broadcast({t:'motion',players});}
   if(now-saveAt>5000){saveAt=now;if(moving)save();}
   if(!buildOpen()||now-aiAt<900)return;
   aiAt=now;
@@ -119,5 +121,5 @@ module.exports = function createSimulation({getGame, G, broadcast, stateChanged,
   if(g.ai.progress>=100&&g.ai.cycles%4===0){const key=Object.keys(g.builds.C)[g.ai.cycles%Object.keys(g.builds.C).length];if(key){const b=g.builds.C[key];b.c=b.c===5?6:5;pending().C.push([1,...key.split(',').map(Number),b.c,'ai-core']);}}
   stateChanged();save();
  }
- return {nav,handle,tick,init,travel,home,boardReady,...workflow};
+ return {nav,handle,tick,init,travel,home,boardReady,electionTick,...workflow};
 };

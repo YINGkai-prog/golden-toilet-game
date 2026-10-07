@@ -48,7 +48,7 @@ window.Office=class extends Base{
   const limbs=[];for(const side of [-1,1]){const arm=new T.Group(),leg=new T.Group();arm.position.set(side*.48,1.36,0);body.add(arm);this.ball(color,0,-.24,0,.14,.32,.15,arm);this.ball(skin,0,-.52,0,.14,.13,.13,arm);leg.position.set(side*.2,.62,0);group.add(leg);this.box('#263644',0,-.19,0,.22,.43,.25,leg);this.ball(color,0,-.42,.1,.19,.12,.28,leg);limbs.push(arm,leg);}
   const shadow=new T.Mesh((this.crewShadowGeo||=new T.CircleGeometry(.65,12)),(this.crewShadowMat||=new T.MeshBasicMaterial({color:'#020b0e',transparent:true,opacity:.5,depthWrite:false})));shadow.rotation.x=-Math.PI/2;shadow.position.y=.22;group.add(shadow);
   // Keep the base lifecycle's disposable sprite, but all names use the kite layer.
-  const sprite=new T.Sprite(new T.SpriteMaterial({map:this.text(''),opacity:0}));group.add(sprite);
+  const sprite=new T.Sprite(new T.SpriteMaterial({map:this.text(''),opacity:0}));sprite.visible=false;group.add(sprite);
   const halo=new T.Mesh((this.crewHaloGeo||=new T.RingGeometry(.66,.78,16)),(this.crewHaloMat||=new T.MeshBasicMaterial({color:'#a8efd5',side:T.DoubleSide})));halo.rotation.x=-Math.PI/2;halo.position.y=.24;group.add(halo);
   const aura=new T.Mesh((this.crewAuraGeo||=new T.RingGeometry(.85,1.14,16)),(this.crewAuraMat||=new T.MeshBasicMaterial({color:'#ffe4a0',side:T.DoubleSide,transparent:true,opacity:.65,depthWrite:false})));aura.rotation.x=-Math.PI/2;aura.position.y=.23;group.add(aura);
   const crown=new T.Mesh((this.crewCrownGeo||=new T.OctahedronGeometry(.17)),(this.crewCrownMat||=new T.MeshBasicMaterial({color:'#ffdf94'})));crown.position.y=3.05;group.add(crown);
