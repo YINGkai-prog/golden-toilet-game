@@ -2,11 +2,11 @@
 // A small, deterministic campus grid. Furniture and walls share their footprints
 // with the renderer, so a mouse destination never becomes a wall-crossing shortcut.
 module.exports = function navigation(G) {
-  const minX=-63,maxX=63,minZ=-58,maxZ=72,W=maxX-minX+1,H=maxZ-minZ+1;
+  const minX=-149,maxX=63,minZ=-58,maxZ=72,W=maxX-minX+1,H=maxZ-minZ+1;
   const core=G.ROOMS.find(r=>r.id==='core');
   const inside=(p,r,pad=0)=>Math.abs(p.x-r.x)<r.w/2+pad&&Math.abs(p.z-r.z)<r.d/2+pad;
   const office={x:0,z:6,w:83,d:79};
-  const solids=[...G.WALLS,...G.SOLIDS];
+  const solids=[...G.WALLS,...G.SOLIDS].map(r=>({...r,destroyed:false}));
   const buckets=new Map();for(const r of solids)for(let z=Math.floor((r.z-r.d/2-1)/5);z<=Math.floor((r.z+r.d/2+1)/5);z++)for(let x=Math.floor((r.x-r.w/2-1)/5);x<=Math.floor((r.x+r.w/2+1)/5);x++){const k=x+','+z;if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(r);}
   const nearby=p=>buckets.get(Math.floor(p.x/5)+','+Math.floor(p.z/5))||[];
   const index=(x,z)=>(z-minZ)*W+x-minX;
@@ -15,7 +15,7 @@ module.exports = function navigation(G) {
   for(let z=minZ;z<=maxZ;z++)for(let x=minX;x<=maxX;x++)blocked[index(x,z)]=solids.some(r=>inside({x,z},r,.36));
   function walkable(p,allowCore=false,outdoorOnly=false) {
     return p.x>=minX&&p.x<=maxX&&p.z>=minZ&&p.z<=maxZ &&
-      (!outdoorOnly||!inside(p,office))&&(allowCore||!inside(p,core,.15))&&!nearby(p).some(r=>inside(p,r,.35));
+      (!outdoorOnly||!inside(p,office))&&(allowCore||!inside(p,core,.15))&&!nearby(p).some(r=>!r.destroyed&&inside(p,r,.35));
   }
   const roomAt=p=>G.ROOMS.find(r=>!r.base&&inside(p,r))||G.ROOMS.find(r=>r.base);
   function nearest(p,room,allowCore,outdoorOnly=false) {
@@ -30,7 +30,8 @@ module.exports = function navigation(G) {
   }
   function clear(a,b,allowCore,outdoorOnly=false) {
     // Exact swept segment / expanded rectangle intersection, including corners.
-    const candidates=Math.hypot(a.x-b.x,a.z-b.z)<2?[...new Set([...nearby(a),...nearby(b)])]:solids;
+    const candidatesAll=Math.hypot(a.x-b.x,a.z-b.z)<2?[...new Set([...nearby(a),...nearby(b)])]:solids;
+    const candidates=candidatesAll.filter(r=>!r.destroyed);
     for(const r of [...(allowCore?candidates:[...candidates,core]),...(outdoorOnly?[office]:[])]) {
       let enter=0,leave=1;
       for(const [axis,size] of [['x','w'],['z','d']]) {
@@ -61,5 +62,6 @@ module.exports = function navigation(G) {
     while(k<raw.length){let last=k;while(last+1<raw.length&&clear(anchor,raw[last+1],allowCore,outdoorOnly)&&clearActors(anchor,raw[last+1]))last++;smooth.push([raw[last].x,raw[last].z]);anchor=raw[last];k=last+1;}
     return smooth;
   }
-  return {path,nearest,walkable,clear,roomAt,insideOffice:p=>inside(p,office),insideCore:p=>inside(p,core)};
+  function setDestroyed(ids){const changed=solids.filter(r=>!!r.destroyed!==ids.has(r.id));for(const r of changed)r.destroyed=ids.has(r.id);for(const r of changed)for(let z=Math.max(minZ,Math.floor(r.z-r.d/2-1));z<=Math.min(maxZ,Math.ceil(r.z+r.d/2+1));z++)for(let x=Math.max(minX,Math.floor(r.x-r.w/2-1));x<=Math.min(maxX,Math.ceil(r.x+r.w/2+1));x++)blocked[index(x,z)]=nearby({x,z}).some(o=>!o.destroyed&&inside({x,z},o,.36));}
+  return {setDestroyed,path,nearest,walkable,clear,roomAt,insideOffice:p=>inside(p,office),insideCore:p=>inside(p,core)};
 };

@@ -634,7 +634,7 @@ function onMessage(c, m) {
   if(p&&!c.bot&&['flower.plant','toilet.go','toilet.tap','car.enter','car.exit','car.drive','party.vote','input.active','chat.send','sports.hit','office.move','work.goto','exhibit.inspect','board.vote','place','remove','sticker','banner','visit','react','pressure.start','pressure.stop','mini.start','mini.input','coffee.join','coffee.step','dance','arcade.start','arcade.hit','core.inspect','brief.vote','brief','vote','bossPick','poster','price','survey','gvote','gpick'].includes(m.t))campus.activity(p);
   if(play.blocked(p,m.t)){if(rateOk(c))send(c,{t:'err',msg:'先完成如廁或 OMNI 處置；開車時請先下車再操作設施。'});return;}
   if(p?.play?.carId&&m.t==='office.move'){const r=G.ROOMS.find(r=>r.id===m.room);m={t:'car.drive',x:m.x??r?.x,z:m.z??r?.z};}
-  if(['flower.plant','toilet.go','toilet.tap','car.enter','car.exit','car.drive'].includes(m.t)){if(rateOk(c)){const before=JSON.stringify([p?.play?.flower,p?.play?.toilet?.phase]);play.handle({player:p,reply:msg=>send(c,msg)},m);if(p&&before!==JSON.stringify([p.play?.flower,p.play?.toilet?.phase]))engagement.record(p,'leisure',m.t);}return;}
+  if(['flower.plant','toilet.go','toilet.tap','car.enter','car.exit','car.drive','golf.start','golf.hit','golf.leave'].includes(m.t)){if(rateOk(c)){const before=JSON.stringify([p?.play?.flower,p?.play?.toilet?.phase]);play.handle({player:p,reply:msg=>send(c,msg)},m);if(p&&before!==JSON.stringify([p.play?.flower,p.play?.toilet?.phase]))engagement.record(p,'leisure',m.t);}return;}
   if(['chat.send','input.active','sports.hit'].includes(m.t)){if(rateOk(c))campus.handle({player:p,host:c.host,reply:msg=>send(c,msg),get chatAt(){return c.chatAt;},set chatAt(v){c.chatAt=v;}},m);return;}
   if(m.t==='party.vote'){if(rateOk(c)){party.handle(c,m);if(p&&game.party?.active?.votes[p.id]!=null)engagement.record(p,'proposal',m.id);}return;}
   if (['board.vote','office.move','arcade.start','arcade.hit','core.inspect','work.goto','exhibit.inspect'].includes(m.t)) { if(rateOk(c)){sim.handle({player:p,reply:msg=>send(c,msg)},m);if(p&&m.t==='board.vote'&&game.board.votes[p.id])engagement.record(p,'election');if(p&&m.t==='exhibit.inspect'&&p.inspection?.phaseAt===game.phaseStartedAt)engagement.record(p,'exhibit');} return; }
@@ -1060,7 +1060,7 @@ const assistants=new Map();
 function controllers(){return [...bots,...[...assistants.values()].filter(b=>b.c.player.aiControlled&&!b.c.player.kicked&&game.players[b.c.player.id]===b.c.player)];}
 let botChatAt=0,botChatCursor=0;
 function botTick() {
- const chatNow=now();if(game.pausedRemaining==null&&game.phase!=='launch'&&chatNow-botChatAt>=12000){const crew=bots.filter(b=>b.c.player&&!b.c.player.kicked);if(crew.length){const b=crew[botChatCursor++%crew.length],p=b.c.player;botChatAt=chatNow;const pack=Party.pack({id:p.id,joinIdx:p.joinIdx,room:p.motion?.room,rank:p.rank,round:botChatCursor,category:botChatCursor%3===0?'all':'room'});botSend(b,{t:'chat.send',text:botChatCursor%5===0?pick(['👏','😂','🚽','☕']):pack[botChatCursor%pack.length]});}}
+ const chatNow=now();if(game.pausedRemaining==null&&chatNow-botChatAt>=12000){const crew=bots.filter(b=>b.c.player&&!b.c.player.kicked);if(crew.length){const b=crew[botChatCursor++%crew.length],p=b.c.player;botChatAt=chatNow;const pack=Party.pack({id:p.id,joinIdx:p.joinIdx,room:p.motion?.room,rank:p.rank,round:botChatCursor,category:botChatCursor%3===0?'all':'room'});botSend(b,{t:'chat.send',text:botChatCursor%5===0?pick(['👏','😂','🚽','☕']):pack[botChatCursor%pack.length]});}}
   for(const [id,b] of assistants)if(!b.c.player.aiControlled||b.c.player.kicked||game.players[id]!==b.c.player)assistants.delete(id);
   for(const p of activePlayers())if(!p.bot&&p.aiControlled&&!assistants.has(p.id))assistants.set(p.id,{assisted:true,lazy:false,c:{bot:true,open:true,player:p,host:false,bucket:20,lastFill:now(),cd:{}},done:{},at:{}});
   if (!controllers().length) return;
@@ -1097,10 +1097,10 @@ function botTick() {
     const phaseKey=ph+':'+game.phaseStartedAt;
     if(b.movementPhase!==phaseKey){b.movementPhase=phaseKey;b.nextMove=0;}
     if(!p.motion?.destination&&t>=(b.nextMove||0)) {
-      const rest=['lounge','arcade','garden','courtyard','pool','terrace','road','forest'];
+      const rest=['golf','lounge','arcade','garden','courtyard','pool','terrace','road','forest'];
       const work=sim.home(p);
       const visit=b.visits||0;b.visits=visit+1;
-      const destination=p.indoorBanUntil>t?'pool':ph==='build'&&!b.lazy&&!complete?work:ph==='review'||ph==='roles'&&p.rank==='board'?'board':p.rank==='boss'&&ph==='build'?'core':b.lazy||complete?rest[(p.joinIdx+visit)%rest.length]:(p.joinIdx+visit)%3===0?rest[(p.joinIdx+visit)%rest.length]:work;
+      const destination=p.indoorBanUntil>t?'pool':ph==='build'&&!b.lazy&&!complete?work:ph==='review'||ph==='roles'&&p.rank==='board'?'board':p.rank==='boss'&&ph==='build'?'core':b.lazy||complete||ph==='launch'?rest[(p.joinIdx+visit)%rest.length]:(p.joinIdx+visit)%3===0?rest[(p.joinIdx+visit)%rest.length]:work;
       if(p.motion?.room!==destination||ph==='build'&&destination===work&&['A','B'].includes(p.team)&&!sim.atStation(p))botSend(b,{t:'office.move',room:destination});
       b.nextMove=t+rnd(22000,40000);
     }
@@ -1268,7 +1268,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-smooth-2026.10.07', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-golf-2026.10.07', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
