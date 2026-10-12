@@ -1,0 +1,18 @@
+const {chromium}=require('playwright'),{start,join50,KEY,delay}=require('./helpers.cjs'),assert=require('assert/strict'),fs=require('fs');
+(async()=>{const app=await start();let browser;try{
+ const host=await app.connect({host:true,key:KEY}),{peers,state}=await join50(app,host);
+ peers[1].send({t:'board.vote',candidate:peers[0].you.id,round:state.board.round});peers[2].send({t:'board.vote',candidate:peers[0].you.id,round:state.board.round});await host.wait(m=>m.t==='state'&&m.s.board.chair);
+ host.send({t:'h.phase',phase:'build'});peers.forEach(p=>p.idle());
+ browser=await chromium.launch({channel:'msedge',headless:true});const ctx=await browser.newContext({viewport:{width:1366,height:768},deviceScaleFactor:1});
+ await ctx.addInitScript(token=>{localStorage.setItem('gt_token',token);let value;Object.defineProperty(window,'Office',{get:()=>value,set:c=>value=new Proxy(c,{construct(t,a,n){const o=Reflect.construct(t,a,n);window.qaOffice=o;return o;}})});},peers[19].you.token);
+ const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(app.base);await page.waitForFunction(()=>qaOffice?.actors.size===50);await delay(45000);
+ const cdp=await ctx.newCDPSession(page),samples=[];
+ for(const config of [{quality:'auto',rate:1},{quality:'auto',rate:4},{quality:'ultra',rate:1}]){
+  await cdp.send('Emulation.setCPUThrottlingRate',{rate:config.rate});await page.selectOption('#renderQuality',config.quality);await delay(12000);
+  const sample=await page.evaluate(()=>new Promise(resolve=>{const o=qaOffice,r=o.renderer,old=r.render,frames=[];let prev=0;const start=performance.now();r.render=function(s,c){if(s===o.scene){const now=performance.now();if(prev)frames.push(now-prev);prev=now;}return old.call(this,s,c);};setTimeout(()=>{r.render=old;frames.sort((a,b)=>a-b);resolve({fps:+((frames.length+1)*1000/(performance.now()-start)).toFixed(1),p95FrameMs:frames[Math.floor(frames.length*.95)],renderRatio:r.getPixelRatio(),effectiveQuality:o.quality==='auto'?o.autoQuality:o.quality,players:o.actors.size,labels:[...o.actors.values()].filter(a=>!a.tag.hidden).length,shadow:r.shadowMap.enabled,buildCounts:o.nightState.counts});},20000);}));samples.push({...config,...sample});console.log(JSON.stringify(samples.at(-1)));await page.screenshot({path:'artifacts/device-'+config.quality+'-cpu'+config.rate+'.png'});
+ }
+ await page.selectOption('#renderQuality','auto');await page.locator('#deviceCheck').click();await page.evaluate(()=>window.qaCheck=DeviceCheck.active);await page.waitForSelector('.device-report[open]',{timeout:70000});const report=await page.evaluate(()=>qaCheck.report);assert.ok(report.fps>0);assert.ok(report.network.receivedBytes>0);assert.ok(report.network.samples>0);assert.equal(report.scene.players,50);
+ const download=page.waitForEvent('download');await page.locator('[data-save]').click();await (await download).saveAs('artifacts/device-check-download.json');await page.locator('[data-close]').click();assert.equal(await page.locator('.device-report').evaluate(e=>e.open),false);
+ assert.deepEqual(errors,[]);assert.equal(samples.find(s=>s.quality==='ultra').renderRatio,2);assert.ok(samples.find(s=>s.quality==='ultra').shadow);
+ fs.writeFileSync('artifacts/device-performance.json',JSON.stringify({at:new Date().toISOString(),samples,report,errors,limitations:['CPU throttling is a local simulation, not company hardware or Wi-Fi.','One rendered player view with 50 real player sockets and AI assistance, not 50 physical PCs.']},null,2));
+ }finally{await browser?.close();await app.stop();}})().catch(e=>{console.error(e);process.exitCode=1;});
