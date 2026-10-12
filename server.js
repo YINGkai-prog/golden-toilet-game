@@ -869,7 +869,7 @@ function onMessage(c, m) {
   switch (m.t) {
     case 'h.intro': {
       if(game.phase!=='lobby'||game.show?.active){send(c,{t:'err',msg:'前導影片請在正式遊戲開始前播放。'});return;}
-      game.intro={startedAt:now(),endsAt:now()+40000};broadcastState(true);scheduleSave();return;
+      game.intro={startedAt:now(),endsAt:now()+30000};broadcastState(true);scheduleSave();return;
     }
     case 'h.stopIntro': {game.intro=null;broadcastState(true);scheduleSave();return;}
     case 'h.startShow': {
@@ -1286,7 +1286,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-performance-2026.10.12', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-trailer-2026.10.12', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
