@@ -61,6 +61,7 @@
       this.gen = 0;
       this.wsFails = 0;
       this.banner = null;
+      this.stateReceiver = new StateSync.Receiver();
       const q = new URLSearchParams(location.search).get('transport');
       let saved = null; try { saved = sessionStorage.getItem('gt_transport'); } catch (e) { /* ignore */ }
       this.mode = q === 'poll' || q === 'ws' ? q : saved === 'poll' ? 'poll' : (typeof WebSocket === 'undefined' ? 'poll' : 'ws');
@@ -72,12 +73,16 @@
     emit(t, m) { (this.handlers[t] || []).forEach(fn => fn(m)); }
     now() { return Date.now() + this.offset; }
     hello() {
-      const hello = { t: 'hello', token: U.store.get('gt_token', '') || undefined };
+      const hello = { t: 'hello', stateDelta:1, token: U.store.get('gt_token', '') || undefined };
       if (this.opts.host) { hello.host = true; hello.key = this.opts.key; }
       if (this.opts.office) hello.office = true;
       return hello;
     }
     _recv(m) {
+      if(m.t==='welcome')this.stateReceiver=new StateSync.Receiver();
+      const decoded=this.stateReceiver.receive(m);
+      if(!decoded){this.send({t:'sync',channel:m.channel});return;}
+      m=decoded;
       if (m.s && m.s.serverNow) this.offset = m.s.serverNow - Date.now();
       this.emit(m.t, m);
     }
@@ -103,6 +108,7 @@
       const timer = setTimeout(() => { if (!welcomed) { try { ws.close(); } catch (e) { /* ignore */ } } }, 6000);
       ws.onopen = () => { opened = true; ws.send(JSON.stringify(this.hello())); };
       ws.onmessage = ev => {
+        if(window.DeviceCheck?.active)DeviceCheck.active.bytes+=new TextEncoder().encode(ev.data).byteLength;
         let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
         if (m.t === 'welcome' && !welcomed) { welcomed = true; clearTimeout(timer); this.wsFails = 0; this._opened(); }
         this._recv(m);
@@ -140,6 +146,7 @@
         .then(r => { if (!r.ok) throw new Error('poll ' + r.status); return r.json(); })
         .then(arr => {
           if (gen !== this.gen) return;
+          if(window.DeviceCheck?.active)DeviceCheck.active.bytes+=new TextEncoder().encode(JSON.stringify(arr)).byteLength;
           for (const m of arr) {
             if (m.t === 'welcome' && !this.connected) this._opened();
             this._recv(m);
@@ -292,6 +299,9 @@
       this._bindInput();
       this.ro = new ResizeObserver(() => this.resize());
       this.ro.observe(container);
+      this.inViewport=true;
+      this.io=new IntersectionObserver(entries=>{this.inViewport=entries[0]?.isIntersecting||false;if(this.inViewport)this.dirty=true;});
+      this.io.observe(container);
       this.resize();
       views.add(this);
       if (!loopOn) { loopOn = true; requestAnimationFrame(loop); }
@@ -515,7 +525,9 @@
     }
 
     _frame(t) {
-      if (!this.el.isConnected||!this.el.getClientRects().length||!this.el.clientWidth||!this.el.clientHeight||document.hidden||this.el.getBoundingClientRect().bottom<0||this.el.getBoundingClientRect().top>innerHeight) return;
+      if (!this.inViewport||!this.el.isConnected||document.hidden) return;
+      const low=document.body.dataset.renderQuality==='low';
+      if(low&&!this.dirty&&t-(this.drawAt||0)<66)return;
       if (this.needRebuild) this._rebuild();
       let animate = false;
       if (this.opts.autoRotate && (!this.lastInteract || t - this.lastInteract > 4000)) { this.yaw += 0.004; animate = true; }
@@ -532,6 +544,7 @@
       }
       if (this.opts.autoFit) { this.fitHeight(); animate = true; }
       if (!this.dirty && !animate) return;
+      this.drawAt=t;
       this.dirty = false;
       const cp = Math.cos(this.pitch);
       this.camera.position.set(
@@ -571,6 +584,7 @@
     dispose() {
       views.delete(this);
       this.ro.disconnect();
+      this.io.disconnect();
       if (this.envRT) this.envRT.dispose();
       this.renderer.dispose();
       this.renderer.forceContextLoss && this.renderer.forceContextLoss();
@@ -593,4 +607,3 @@
   window.VoxelView = VoxelView;
   window.timerText = timerText;
 })();
-

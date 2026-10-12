@@ -392,6 +392,10 @@ function youState(p) {
 
 // ---------------------------------------------------------------- WebSocket（自製，免安裝套件）
 const clients = new Set();
+const stateSync = require('./public/state-sync.js');
+const snapshotStreams = new Map();
+const snapshotTypes = new Set(['state','play.frame','campus.frame','leisure.frame']);
+const wireNumber = (_k,v) => typeof v==='number'&&!Number.isInteger(v)?Math.round(v*100)/100:v;
 
 function wsAccept(req, socket) {
   const key = req.headers['sec-websocket-key'];
@@ -460,10 +464,19 @@ function send(c, obj) {
   if (c.poll) pollPush(c, str); else sendRaw(c, Buffer.from(str));
 }
 function broadcast(obj, filter) {
-  const str = JSON.stringify(obj);
-  let buf = null;
+  const str = JSON.stringify(obj,wireNumber);
+  let buf = null, full = null, delta = null, revision = 0, previous;
+  if(snapshotTypes.has(obj.t)){
+    const value=JSON.parse(str);previous=snapshotStreams.get(obj.t);revision=(previous?.rev||0)+1;
+    full=Buffer.from(JSON.stringify({...value,rev:revision}));
+    if(previous){const patch=Buffer.from(JSON.stringify({t:'delta',channel:obj.t,base:previous.rev,rev:revision,changes:stateSync.diff(previous.s,value.s)}));if(patch.length<full.length)delta=patch;}
+    snapshotStreams.set(obj.t,{rev:revision,s:value.s});
+  }
   for (const c of clients) {
-    if (filter && !filter(c)) continue;if(!c.poll&&c.socket?.writableLength>131072&&['state','play.frame','campus.frame','leisure.frame'].includes(obj.t))continue;
+    if (filter && !filter(c)) continue;if(!c.poll&&c.socket?.writableLength>131072&&snapshotTypes.has(obj.t))continue;
+    if(c.stateDelta&&full){
+      c.streamRevisions||={};sendRaw(c,delta&&c.streamRevisions[obj.t]===previous.rev?delta:full);c.streamRevisions[obj.t]=revision;continue;
+    }
     if (c.poll) pollPush(c, str); else sendRaw(c, buf || (buf = Buffer.from(str)));
   }
 }
@@ -645,6 +658,8 @@ function onMessage(c, m) {
   switch (m.t) {
     case 'appearance.roll': if(cooldown(c,'look',700)&&rateOk(c,2))send(c,{t:'appearance.offer',offer:appearances.offer(c)});return;
     case 'hello': {
+      // HTTP polling coalesces snapshots, so it intentionally keeps complete frames.
+      c.stateDelta=!c.poll&&m.stateDelta===1;c.streamRevisions={};
       if (m.office) c.office = true;
       if (m.host) {
         if (m.key === HOST_KEY) { c.host = true; } else { send(c, { t: 'hostDenied' }); }
@@ -659,6 +674,7 @@ function onMessage(c, m) {
       return;
     }
     case 'ping': send(c, { t: 'pong', n: m.n, serverNow: now() }); return;
+    case 'sync': {if(snapshotTypes.has(m.channel)&&cooldown(c,'sync',500)){c.streamRevisions||={};delete c.streamRevisions[m.channel];stateDirty=true;}return;}
 
     case 'join': {
       if (p) { send(c, { t: 'you', you: youState(p) }); return; }
@@ -1270,7 +1286,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-clear-ui-2026.10.07', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-performance-2026.10.12', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {
