@@ -1,2 +1,7 @@
 .quality-control{display:flex;align-items:center;gap:7px;padding:0 9px;font:11px system-ui;color:#cbdcd5;background:#0a1d26e6;border:1px solid #456166;border-radius:7px;white-space:nowrap}.quality-control select{background:#162d35;color:#f2e8cc;border:0;padding:9px 3px;font:inherit;cursor:pointer}.quality-control select:focus-visible{outline:2px solid #dcca9f}.camera-controls{flex-wrap:wrap;max-width:70%}@media(max-width:700px){.camera-controls{max-width:100%}.quality-control{padding:0 5px}}
 @media(max-width:700px){.camera-controls{left:12px;right:12px;max-width:none;justify-content:flex-start}.quality-control{position:absolute;left:0;top:38px;font-size:10px}.quality-control select{padding:5px 3px}}
+
+/* Translucent fills stay intact; costly live background blur is reserved for capable devices. */
+body[data-render-quality=low] *,body[data-render-quality=medium] *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.kite-layer{contain:layout style}.kite{contain:layout style}
+.device-report{width:min(520px,calc(100vw - 32px));max-height:85dvh;overflow:auto;border:1px solid #66878a;border-radius:16px;padding:24px;background:#10252d;color:#e3ede6}.device-report::backdrop{background:#020c12b0}.device-report h2{font-size:23px}.device-report p{line-height:1.7;font-size:14px}.device-report .device-verdict{color:#cce4a9;font-size:18px}.device-report dl{display:grid;grid-template-columns:1fr 1fr;gap:14px}.device-report dd{margin:0;text-align:right;font:20px monospace}.device-report>div{display:flex;gap:10px;flex-wrap:wrap}
