@@ -67,7 +67,19 @@
       this.mode = q === 'poll' || q === 'ws' ? q : saved === 'poll' ? 'poll' : (typeof WebSocket === 'undefined' ? 'poll' : 'ws');
       this.connect();
       // 心跳：讓雲端主機知道還有人在用（也幫忙偵測斷線）
-      setInterval(() => { if (this.connected) this.send({ t: 'ping', n: Date.now() }); }, 45000);
+      setInterval(() => {
+        if (this.suspended) return;
+        if (this.connected && Date.now() - this.lastReceived > 40000) this.reconnect();
+        else if (this.connected) this.send({ t: 'ping', n: Date.now() });
+      }, 15000);
+      // History/BFCache restores can keep a stale socket and an old scene alive.
+      // Always obtain a fresh snapshot on return, using the existing seat token.
+      addEventListener('pagehide', () => { this.suspended = true; this._lost(); });
+      addEventListener('pageshow', e => { if (e.persisted || this.suspended) this.reconnect(); });
+      addEventListener('online', () => this.reconnect());
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && (!this.connected || Date.now() - this.lastReceived > 20000)) this.reconnect();
+      });
     }
     on(t, fn) { (this.handlers[t] = this.handlers[t] || []).push(fn); return this; }
     emit(t, m) { (this.handlers[t] || []).forEach(fn => fn(m)); }
@@ -79,6 +91,7 @@
       return hello;
     }
     _recv(m) {
+      this.lastReceived = Date.now();
       if(m.t==='welcome')this.stateReceiver=new StateSync.Receiver();
       const decoded=this.stateReceiver.receive(m);
       if(!decoded){this.send({t:'sync',channel:m.channel});return;}
@@ -87,16 +100,21 @@
       this.emit(m.t, m);
     }
     _opened() {
-      this.connected = true; this.retry = 0;
+      this.connected = true; this.retry = 0; this.lastReceived = Date.now();
       this.showBanner(false);
       this.emit('open');
     }
-    _lost() {
+    reconnect() { this.suspended = false; this._lost(0); }
+    _lost(delay) {
       const gen = ++this.gen;
+      this.pollAbort?.abort(); this.pollAbort = null;
+      const old = this.ws; this.ws = null;
+      if (old) { old.onclose = old.onerror = old.onmessage = old.onopen = null; try { old.close(); } catch {} }
       if (this.connected) this.emit('close');
       this.connected = false;
       this.showBanner(true);
-      const d = Math.min(4000, 600 + this.retry++ * 600);
+      if (this.suspended) return;
+      const d = delay ?? Math.min(4000, 600 + this.retry++ * 600);
       setTimeout(() => { if (gen === this.gen) this.connect(); }, d);
     }
     connect() { if (this.mode === 'poll') this._connectPoll(); else this._connectWS(); }
@@ -106,8 +124,9 @@
       let ws, opened = false, welcomed = false;
       try { ws = this.ws = new WebSocket(proto + '//' + location.host + '/ws'); } catch (e) { this.mode = 'poll'; this._connectPoll(); return; }
       const timer = setTimeout(() => { if (!welcomed) { try { ws.close(); } catch (e) { /* ignore */ } } }, 6000);
-      ws.onopen = () => { opened = true; ws.send(JSON.stringify(this.hello())); };
+      ws.onopen = () => { if (gen !== this.gen) return; opened = true; ws.send(JSON.stringify(this.hello())); };
       ws.onmessage = ev => {
+        if (gen !== this.gen) return;
         if(window.DeviceCheck?.active)DeviceCheck.active.bytes+=new TextEncoder().encode(ev.data).byteLength;
         let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
         if (m.t === 'welcome' && !welcomed) { welcomed = true; clearTimeout(timer); this.wsFails = 0; this._opened(); }
@@ -129,8 +148,9 @@
     }
     _connectPoll() {
       const gen = this.gen;
+      const controller = this.pollAbort = new AbortController();
       this.sendq = []; this.sending = false;
-      fetch('/rt/connect', { method: 'POST', cache: 'no-store' })
+      fetch('/rt/connect', { method: 'POST', cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) })
         .then(r => { if (!r.ok) throw new Error('connect ' + r.status); return r.json(); })
         .then(j => {
           if (gen !== this.gen) return;
@@ -142,7 +162,7 @@
         .catch(() => { if (gen === this.gen) this._lost(); });
     }
     _poll(gen, first) {
-      fetch('/rt/poll?cid=' + encodeURIComponent(this.cid), { cache: 'no-store' })
+      fetch('/rt/poll?cid=' + encodeURIComponent(this.cid), { cache: 'no-store', signal: AbortSignal.any([this.pollAbort.signal, AbortSignal.timeout(35000)]) })
         .then(r => { if (!r.ok) throw new Error('poll ' + r.status); return r.json(); })
         .then(arr => {
           if (gen !== this.gen) return;
@@ -160,10 +180,10 @@
       if (this.sending || !this.sendq || !this.sendq.length || !this.cid) return;
       this.sending = true;
       const gen = this.gen, batch = this.sendq.splice(0, 60);
-      fetch('/rt/send?cid=' + encodeURIComponent(this.cid), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(batch), cache: 'no-store' })
-        .then(r => { if (r.status === 410) throw new Error('gone'); })
+      fetch('/rt/send?cid=' + encodeURIComponent(this.cid), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(batch), cache: 'no-store', signal: AbortSignal.any([this.pollAbort.signal, AbortSignal.timeout(8000)]) })
+        .then(r => { if (!r.ok) throw new Error('send ' + r.status); })
         .catch(() => { if (gen === this.gen) this._lost(); })
-        .finally(() => { this.sending = false; if (gen === this.gen) this._flushSend(); });
+        .finally(() => { if (gen === this.gen) { this.sending = false; this._flushSend(); } });
     }
     send(obj) {
       if (this.mode === 'poll') {
