@@ -21,7 +21,9 @@ test('fill 50 is host-only, idempotent, counts queued bots, elects human chair a
  assert.equal(full.players.filter(p=>p.bot).length,49);assert.equal(full.testPlayers.pending,0);
  assert.equal(Object.values(full.board.votes).filter(v=>v===you.id).length,2);assert.ok(Object.entries(full.board.votes).every(([id,v])=>id!==v));
  host.send({t:'h.fillPlayers'});await delay(200);assert.equal((await app.connect()).welcome.s.players.length,50);
- const guest=await app.connect();guest.send({t:'join',name:'真人訪客'});const guestYou=(await guest.wait('you')).you;
+ const guest=await app.connect();guest.send({t:'join',name:'真人訪客'});assert.equal((await guest.wait('err')).code,'full');
+ const released=full.players.find(p=>p.bot&&p.rank==='staff');host.send({t:'h.kick',id:released.id});await host.wait(m=>m.t==='state'&&m.s.players.length===49);
+ guest.send({t:'join',name:'真人訪客'});const guestYou=(await guest.wait('you')).you;
  guest.send({t:'office.move',room:'grounds',x:29,z:-22});assert.match((await guest.wait('err')).msg,/僅董事長/);
  host.send({t:'h.settings',buildSec:60});host.send({t:'h.phase',phase:'build'});
  await host.wait(m=>m.t==='state'&&m.s.phase==='build'&&m.s.counts.A>3&&m.s.counts.B>3&&m.s.counts.C>3);

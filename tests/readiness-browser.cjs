@@ -1,0 +1,22 @@
+const {chromium}=require('playwright'),fs=require('node:fs'),assert=require('node:assert/strict');
+const {start,KEY,delay}=require('./helpers.cjs');
+(async()=>{const app=await start();let browser;try{
+ const host=await app.connect({host:true,key:KEY});host.send({t:'h.openLobby'});await delay(3500);
+ const peer=await app.connect();peer.send({t:'join',name:'續玩驗收'});const you=(await peer.wait('you')).you;
+ browser=await chromium.launch({channel:'msedge',headless:true});const ctx=await browser.newContext({viewport:{width:1366,height:768}});
+ await ctx.addInitScript(token=>localStorage.setItem('gt_token',token),you.token);
+ const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const ready=async()=>{await page.waitForFunction(()=>document.querySelector('#connection')?.textContent.includes('ONLINE'),{},{timeout:30000});assert.equal(await page.evaluate(()=>localStorage.getItem('gt_token')),you.token);await page.waitForFunction(()=>document.querySelector('#mission')?.textContent.includes('續玩驗收'));};
+ await page.goto(app.base);await ready();await page.reload();await ready();
+ await page.goto(app.base+'/watch');await page.goBack();await ready();await page.goForward();await page.waitForSelector('#teams .team');await page.locator('#return').click();await ready();
+ await ctx.setOffline(true);await delay(3000);await ctx.setOffline(false);await ready();
+ await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true})));await delay(100);await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));await ready();
+ await page.close();const reopened=await ctx.newPage();await reopened.goto(app.base);await reopened.waitForFunction(()=>document.querySelector('#mission')?.textContent.includes('續玩驗收'));assert.equal(await reopened.evaluate(()=>localStorage.getItem('gt_token')),you.token);
+ const blocked=await browser.newContext({viewport:{width:1366,height:768}});await blocked.addInitScript(token=>localStorage.setItem('gt_token',token),you.token);await blocked.routeWebSocket('**/ws',ws=>ws.close());const fallback=await blocked.newPage();fallback.on('pageerror',e=>errors.push(e.message));await fallback.goto(app.base);await fallback.waitForFunction(()=>sessionStorage.getItem('gt_transport')==='poll'&&document.querySelector('#connection')?.textContent.includes('ONLINE'),{},{timeout:30000});
+ await blocked.setOffline(true);await delay(2000);await blocked.setOffline(false);await fallback.waitForFunction(()=>document.querySelector('#connection')?.textContent.includes('ONLINE'));assert.equal(await fallback.evaluate(()=>localStorage.getItem('gt_token')),you.token);
+ host.send({t:'h.fillPlayers'});await host.wait(m=>m.t==='state'&&m.s.players.length===50);
+ const visitor=await browser.newContext({viewport:{width:1366,height:768}}),watch=await visitor.newPage();watch.on('pageerror',e=>errors.push(e.message));const visitorRequests=[];watch.on('request',r=>visitorRequests.push(r.url()));await watch.goto(app.base);await watch.waitForURL('**/watch');await watch.waitForSelector('#teams .team');assert.ok((await watch.locator('#capacity').innerText()).includes('50 / 50'));assert.equal(await watch.locator('canvas').count(),0);assert.ok(!visitorRequests.some(url=>url.includes('three.min.js')||url.includes('nexus-office.js')));await watch.screenshot({path:'artifacts/watch-desktop.png'});
+ await watch.setViewportSize({width:390,height:844});assert.equal(await watch.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await watch.screenshot({path:'artifacts/watch-mobile.png',fullPage:true});
+ await reopened.reload();await reopened.waitForFunction(()=>document.querySelector('#mission')?.textContent.includes('續玩驗收'));assert.ok(!reopened.url().includes('/watch'));assert.equal((await app.connect()).welcome.s.players.length,50);
+ assert.deepEqual(errors,[]);const report={passed:true,checks:['refresh','history back/forward','close/reopen same browser','offline/online','BFCache lifecycle','WebSocket blocked -> HTTP fallback','HTTP fallback reconnect','50-player cap overflow -> lightweight watch','existing player resumes when full','mobile watch layout'],errors};fs.writeFileSync('artifacts/readiness-browser.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+ }finally{await browser?.close();await app.stop();}})().catch(e=>{console.error(e);process.exitCode=1});
