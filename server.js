@@ -24,6 +24,7 @@ function loadShared() {
   return m.exports;
 }
 const G = loadShared();
+const PLAYER_CAPACITY = 50;
 const market=require('./market.cjs');
 const Party=require('./public/party-shared.js');
 
@@ -359,6 +360,7 @@ function publicState(includeHistory=false) {
     party: party.summary(),
     players: ps,
     connected: clients.size,
+    capacity: PLAYER_CAPACITY,
     testPlayers: {active:ps.filter(p=>p.bot).length,pending:bots.filter(b=>!b.c.player).length,target:50},
     play:play.summary(), campus:campus.summary(includeHistory), recreation: recreation.summary(), board: game.board, ai:{mode:game.ai.mode,progress:game.ai.progress,cycles:game.ai.cycles},
     brief: game.brief,
@@ -388,6 +390,28 @@ function youState(p) {
     survey: game.poster.survey[p.id] || null,
     poster: game.poster.posters[p.id] ? { name: game.poster.posters[p.id].name, slogan: game.poster.posters[p.id].slogan, submitted: !!game.poster.posters[p.id].submitted, v: game.poster.posters[p.id].v } : null
   };
+}
+
+// A shared, small snapshot for overflow viewers. No 3D motion, private tokens,
+// player roster, or build voxels; spectators don't double the game socket load.
+let watchCache = null, watchCacheAt = 0;
+function watchState() {
+  if (watchCache && now() - watchCacheAt < 1000 && watchCache.gameId === game.gameId) return watchCache;
+  watchCacheAt = now();
+  const ps = activePlayers(), index = G.PHASE_IDS.indexOf(game.phase);
+  watchCache = {
+    gameId: game.gameId, serverNow: now(), phase: game.phase,
+    title: G.PHASES[index]?.long || '準備中', next: G.PHASES[index + 1]?.long || '自由探索',
+    endsAt: game.phaseEndsAt, pausedRemaining: game.pausedRemaining,
+    players: ps.length, capacity: PLAYER_CAPACITY, available: Math.max(0, PLAYER_CAPACITY - ps.length),
+    canJoin: ps.length < PLAYER_CAPACITY && (game.phase !== 'lobby' || game.lobby.open && now() >= game.lobby.openAt),
+    brief: G.BRIEFS[game.brief.choice]?.name || '等待開案',
+    teams: ['A','B','C'].map(id => ({ id, name: G.TEAMS[id].name, blocks: Object.keys(game.builds[id]).length, votes: tallyReview()[id] || 0 })),
+    winner: game.review.winner, price: game.poster.officialPrice,
+    posters: Object.entries(game.poster.posters).filter(([,p]) => p.img).map(([id,p]) => ({ id, name: p.name, slogan: p.slogan, url: '/poster/' + id + '.jpg?v=' + p.v })),
+    chat: (game.campus?.chat || []).filter(m => m.kind !== 'event').slice(-8).map(m => ({ id:m.id, name:m.name, text:m.text }))
+  };
+  return watchCache;
 }
 
 // ---------------------------------------------------------------- WebSocket（自製，免安裝套件）
@@ -682,6 +706,12 @@ function onMessage(c, m) {
       if (!name) { send(c, { t: 'err', msg: '請輸入名字' }); return; }
       if (game.phase === 'lobby' && (!game.lobby.open || now() < game.lobby.openAt)) { send(c, { t: 'err', msg: '還沒開放報到，等主持人倒數！', code: 'notopen' }); return; }
       if (!rateOk(c, 5)) return;
+      // Reconnecting players are restored by hello before this check. An absent
+      // human keeps their seat while AI helps; a new visitor cannot take it.
+      if (activePlayers().length >= PLAYER_CAPACITY) {
+        send(c, { t: 'err', code: 'full', msg: '50 位同仁已報到，請到觀戰席一起看成果；原玩家請用原瀏覽器回來續玩。', watchUrl: '/watch' });
+        return;
+      }
       const appearance=appearances.choose(c,m);if(!appearance){send(c,{t:'err',msg:'造型已過期，請重新隨機產生三款'});send(c,{t:'appearance.offer',offer:appearances.offer(c)});return;}
       const id = rid(5);
       const player = { id, appearance, lastActionAt:now(), token: rid(12), name, joinIdx: ++game.joinCounter, joinMs: game.lobby.openAt ? Math.max(0, now() - game.lobby.openAt) : 0, online: true, bot:!!c.bot, supportTeam:c.supportTeam||null, rank: null, team: null, title: '', kicked: false };
@@ -1245,7 +1275,14 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify(netInfo()));
     return;
   }
-  if (p === '/' || p === '/play') p = '/index.html';
+  if (p === '/api/watch') {
+    const body = JSON.stringify(watchState());
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(body); return;
+  }
+  if (p === '/watch') p = '/watch.html';
+  if (p === '/') p = '/entry.html';
+  if (p === '/play') p = '/index.html';
   if (p === '/host' || p === '/screen') p = '/host.html';
   if (EMB) {
     const b64 = Object.prototype.hasOwnProperty.call(EMB, p) ? EMB[p] : null;
@@ -1286,7 +1323,7 @@ function netInfo() {
     }
   }
   ips.sort((a, b) => b.score - a.score);
-  return { ips, port: PORT, release: 'office-trailer-2026.10.12', layout:G.LAYOUT,workSeats:G.DESKS.length };
+  return { ips, port: PORT, release: 'office-ready-2026.10.14', layout:G.LAYOUT,workSeats:G.DESKS.length };
 }
 
 server.on('error', e => {

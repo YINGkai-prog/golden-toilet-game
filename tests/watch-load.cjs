@@ -1,0 +1,6 @@
+const fs=require('node:fs'),path=require('node:path');
+const {setTimeout:delay}=require('node:timers/promises');
+const out=path.resolve(__dirname,'../artifacts'),session=JSON.parse(fs.readFileSync(out+'/bandwidth-session.json'));
+let bytes=0,requests=0,errors=[],latencies=[],stop=false;
+const start=Date.now(),duration=Number(process.env.DURATION_MS||600000);
+(async()=>{await Promise.all(Array.from({length:50},async(_,i)=>{await delay(i*45);while(Date.now()-start<duration&&!stop){const t=Date.now();try{const r=await fetch(session.base+'/api/watch',{signal:AbortSignal.timeout(8000)}),text=await r.text();if(!r.ok)throw Error(r.status);const s=JSON.parse(text);if(s.players!==50)throw Error('players='+s.players);bytes+=Buffer.byteLength(text);requests++;latencies.push(Date.now()-t);}catch(e){errors.push(String(e));if(errors.length>100)stop=true;}await delay(3000);}}));latencies.sort((a,b)=>a-b);const report={spectators:50,durationMs:Date.now()-start,requests,bytes,p95Ms:latencies[Math.floor(latencies.length*.95)],errors};fs.writeFileSync(out+'/watch-load.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));if(errors.length)process.exitCode=1;})().catch(e=>{console.error(e);process.exitCode=1});
